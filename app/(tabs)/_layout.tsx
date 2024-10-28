@@ -9,7 +9,7 @@ import { useRouter } from 'expo-router';
 import { TabBarIcon } from '@/components/navigation/TabBarIcon';
 import { Colors } from '@/constants/Colors';
 import { useColorScheme } from '@/hooks/useColorScheme';
-import Svg, { Path } from 'react-native-svg';
+import { Stack } from 'expo-router';
 
 export default function TabLayout() {
   const colorScheme = useColorScheme();
@@ -17,17 +17,21 @@ export default function TabLayout() {
   const router = useRouter();
   const [notificationCount, setNotificationCount] = useState(0);
   const [projectID, setProjectID] = useState<number | null>(null);
+  const [userRole, setUserRole] = useState<string | null>(null);
+  const [userPermissions, setUserPermissions] = useState<string[]>([]);
 
-  const fetchProjectID = async () => {
+  const fetchUserData = async () => {
     const userData = await AsyncStorage.getItem('loginData');
     if (userData) {
-      const { Project_ID } = JSON.parse(userData);
-      setProjectID(Project_ID);
+      const { user } = JSON.parse(userData);
+      setUserRole(user.role);
+      setUserPermissions(user.permissions);
+      setProjectID(user.project_id);
     }
   };
 
   useEffect(() => {
-    fetchProjectID();
+    fetchUserData();
   }, []);
 
   const handleLogout = async () => {
@@ -35,7 +39,7 @@ export default function TabLayout() {
       console.log("Attempting to log out...");
       await AsyncStorage.removeItem('loginData');
       console.log("User data removed, redirecting to login page...");
-      router.replace('./index');
+      router.replace('./(login)');
     } catch (error) {
       console.error("Logout failed:", error);
     }
@@ -55,6 +59,9 @@ export default function TabLayout() {
   };
 
   return (
+    
+      
+       
     <Tabs
       screenOptions={{
         tabBarActiveTintColor: Colors[colorScheme ?? 'light'].tint,
@@ -64,7 +71,6 @@ export default function TabLayout() {
         tabBarLabelStyle: { color: 'white' },
         headerTitle: () => (
           <View style={styles.logoContainer}>
-         
           </View>
         ),
         headerRight: () => (
@@ -90,30 +96,21 @@ export default function TabLayout() {
           </View>
         ),
       }}>
-    
+
       <Tabs.Screen
-        name="Report"
+        name="Inspection"
         options={{
-          title: 'Report',
+          title: 'Inspection',
           tabBarIcon: ({ focused }) => (
             <Icon
-              name="insert-chart"
+              name="search"
               size={24}
               color={focused ? 'white' : 'white'}
             />
           ),
         }}
       />
-       <Tabs.Screen
-        name="Search"
-        options={{
-          title: 'Search',
-          tabBarIcon: ({ focused }) => (
-            <TabBarIcon name={focused ? 'search' : 'search-outline'} color="white" />
-          ),
-        }}
-      />
-
+      
       <Tabs.Screen
         name="index"
         options={{
@@ -123,26 +120,17 @@ export default function TabLayout() {
           ),
         }}
       />
-     
       <Tabs.Screen
-        name="Add"
+        name="User"
         options={{
-          title: 'Add',
+          title: 'User',
           tabBarIcon: ({ focused }) => (
-            <TabBarIcon name={focused ? 'add-circle' : 'add-circle-outline'} color="white" />
+            <TabBarIcon name={focused ? 'person' : 'person-outline'} color="white" />
           ),
         }}
       />
- 
-      <Tabs.Screen
-        name="Update"
-        options={{
-          title: 'Update',
-          tabBarIcon: ({ focused }) => (
-            <TabBarIcon name={focused ? 'sync' : 'sync-outline'} color="white" />
-          ),
-        }}
-      />
+       
+
     </Tabs>
   );
 }

@@ -1,5 +1,5 @@
 const config = {
-    apiUrl: 'http://192.168.0.127:7000',
+    apiUrl: 'http://192.168.29.35:7001',
     // Add other configuration values or secrets here
     // For example, you might have:
     // apiKey: 'your-api-key',
