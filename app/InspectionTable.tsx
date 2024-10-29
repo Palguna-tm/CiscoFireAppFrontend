@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, FlatList, Image, StyleSheet, ScrollView, ActivityIndicator } from 'react-native';
+import { View, Text, FlatList, Image, StyleSheet, ScrollView } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useLocalSearchParams  } from 'expo-router';
+import config from './config';
 
 type Inspection = {
   id: number;
@@ -13,8 +15,11 @@ type Inspection = {
   approval_status: string;
 };
 
-const InspectionTable = ({ extinguisherid }: { extinguisherid: number }) => {
-  console.log(extinguisherid);
+const InspectionTable = () => {
+  const { extinguisherid } = useLocalSearchParams();
+  const extinguisherIdNumber = Number(extinguisherid);
+  
+  // console.log(typeof extinguisherIdNumber); // Log the type of extinguisherIdNumber
   const [inspections, setInspections] = useState<Inspection[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [userRole, setUserRole] = useState<string | null>(null);
@@ -44,7 +49,7 @@ const InspectionTable = ({ extinguisherid }: { extinguisherid: number }) => {
         token = parsedData.token; // Assuming token is stored in loginData as `token`
       }
   
-      const response = await fetch(`http://192.168.0.52:7001/inspection/${extinguisherid}/inspections`, {
+      const response = await fetch(`${config.apiUrl}/inspection/${extinguisherIdNumber}/inspections`, {
         headers: {
           'Authorization': `Bearer ${token}`, // Add Bearer token here
           'Content-Type': 'application/json',
@@ -90,7 +95,7 @@ const InspectionTable = ({ extinguisherid }: { extinguisherid: number }) => {
               {item.photos.length > 0 ? (
                 <Image
                   style={styles.photo}
-                  source={{ uri: `http://192.168.0.52:7001${item.photos[0]}` }}
+                  source={{ uri: `${config.apiUrl}${item.photos[0]}` }}
                 />
               ) : (
                 <Text style={styles.cell}>No Photo</Text>

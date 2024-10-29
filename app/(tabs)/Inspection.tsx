@@ -7,7 +7,7 @@ import { useNavigation } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { RootStackParamList } from '../navigation/types'; // Adjust the path as necessary
 import InspectionTable from '../InspectionTable';
-import { useRouter } from 'expo-router'; // Import useRouter
+import { router, useRouter } from 'expo-router'; // Import useRouter
 import DateTimePicker from '@react-native-community/datetimepicker';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as ImagePicker from 'expo-image-picker';
@@ -72,7 +72,7 @@ const InspectionScreen: React.FC<InspectionScreenProps> = ({ userRole = 'User', 
     setCameraOpen(false);
 
     try {
-      const response = await fetch('http://192.168.0.52:7001/extinguisher/decrypt', {
+      const response = await fetch(`${config.apiUrl}/extinguisher/decrypt`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -94,7 +94,7 @@ const InspectionScreen: React.FC<InspectionScreenProps> = ({ userRole = 'User', 
   };
 
   if (addingInspection) {
-    return <InspectionForm extinguisherInfo={extinguisherInfo} />;
+    return <InspectionForm extinguisherInfo={extinguisherInfo} setAddingInspection={setAddingInspection} />;
   }
 
   if (showOptions) {
@@ -108,10 +108,26 @@ const InspectionScreen: React.FC<InspectionScreenProps> = ({ userRole = 'User', 
         </TouchableOpacity>
         <TouchableOpacity
           style={styles.pillButton}
-          
-          onPress={() => router.push({ pathname: '/InspectionTable', params: { extinguisherid: extinguisherInfo.id } })}
+          onPress={() => {
+            if (extinguisherInfo && extinguisherInfo.id) {
+              console.log('Extinguisher ID:', extinguisherInfo.id);
+              router.push({ pathname: '/InspectionTable', params: { extinguisherid: extinguisherInfo.id } });
+            } else {
+              Alert.alert('Error', 'Extinguisher information is not available.');
+            }
+          }}
         >
           <Text style={styles.buttonText}>Get Inspection Details</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={styles.pillButton}
+          onPress={() => {
+            setScanned(false);
+            setCameraOpen(true);
+            setShowOptions(false);
+          }}
+        >
+          <Text style={styles.buttonText}>Scan Again</Text>
         </TouchableOpacity>
       </View>
     );
@@ -194,7 +210,7 @@ const InspectionScreen: React.FC<InspectionScreenProps> = ({ userRole = 'User', 
   );
 };
 
-const InspectionForm: React.FC<{ extinguisherInfo: { id: string } }> = ({ extinguisherInfo }) => {
+const InspectionForm: React.FC<{ extinguisherInfo: { id: string }, setAddingInspection: React.Dispatch<React.SetStateAction<boolean>> }> = ({ extinguisherInfo, setAddingInspection }) => {
   const navigation = useNavigation();
   const [cylinderCondition, setCylinderCondition] = useState('');
   const [hoseCondition, setHoseCondition] = useState('');
@@ -210,38 +226,32 @@ const InspectionForm: React.FC<{ extinguisherInfo: { id: string } }> = ({ exting
   const [showServicedDatePicker, setShowServicedDatePicker] = useState(false);
   const [showNextServiceDatePicker, setShowNextServiceDatePicker] = useState(false);
   const [remarks, setRemarks] = useState('');
-  const [showNewForm, setShowNewForm] = useState(false);
-
-  const handleRefilledDateChange = (event: any, selectedDate?: Date) => {
-    setShowRefilledDatePicker(false);
-    if (selectedDate) {
-      setRefilledDate(selectedDate);
-    }
-  };
-
-  const handleNextRefillDateChange = (event: any, selectedDate?: Date) => {
-    setShowNextRefillDatePicker(false);
-    if (selectedDate) {
-      setNextRefillDate(selectedDate);
-    }
-  };
-
-  const handleServicedDateChange = (event: any, selectedDate?: Date) => {
-    setShowServicedDatePicker(false);
-    if (selectedDate) {
-      setServicedDate(selectedDate);
-    }
-  };
-
-  const handleNextServiceDateChange = (event: any, selectedDate?: Date) => {
-    setShowNextServiceDatePicker(false);
-    if (selectedDate) {
-      setNextServiceDate(selectedDate);
-    }
-  };
+  const [notes, setNotes] = useState('');
+  const [status, setStatus] = useState('');
+  const [image, setImage] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false); // New state to track submission status
 
   const handleSubmit = async () => {
-    const inspectionData = {
+    if (!notes || !status || !image) {
+      Alert.alert('Validation Error', 'All fields and image upload are mandatory.');
+      return;
+    }
+
+    setIsSubmitting(true); // Disable the button
+
+    const formData = new FormData();
+    formData.append('extinguisherId', extinguisherInfo.id);
+    formData.append('inspectionDate', new Date().toISOString().split('T')[0]);
+    formData.append('notes', notes);
+    formData.append('status', status);
+    formData.append('next_inspection_date', '2024-01-01');
+    formData.append('photo', {
+      uri: image,
+      name: 'photo.jpg',
+      type: 'image/jpeg',
+    } as any);
+
+    const updates = {
       cylinder_condition: cylinderCondition,
       hose_condition: hoseCondition,
       stand_condition: standCondition,
@@ -251,44 +261,95 @@ const InspectionForm: React.FC<{ extinguisherInfo: { id: string } }> = ({ exting
       next_refill_date: nextRefillDate ? nextRefillDate.toISOString().split('T')[0] : '',
       serviced_date: servicedDate ? servicedDate.toISOString().split('T')[0] : '',
       next_service_date: nextServiceDate ? nextServiceDate.toISOString().split('T')[0] : '',
-      remarks,
     };
-console.log(extinguisherInfo.id);
+
+    formData.append('updates', JSON.stringify(updates));
+
     try {
-      const response = await fetch(`${config.apiUrl}/extinguisher/${extinguisherInfo.id}`, {
-        method: 'PUT',
+      const userData = await AsyncStorage.getItem('loginData');
+      let token = '';
+
+      if (userData) {
+        const parsedData = JSON.parse(userData);
+        token = parsedData.token;
+      }
+
+      const response = await fetch(`${config.apiUrl}/inspection/update-and-add-inspection`, {
+        method: 'POST',
         headers: {
-          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'multipart/form-data',
         },
-        body: JSON.stringify(inspectionData),
+        body: formData,
       });
 
-      if (response.ok) {
-        Alert.alert('Success', 'Extinguisher details updated successfully');
-        setShowNewForm(true);
-      } else {
-        Alert.alert('Error', 'Failed to update extinguisher details');
+      if (!response.ok) {
+        const errorData = await response.text();
+        throw new Error(`Network response was not ok: ${errorData}`);
       }
+
+      const responseData = await response.json();
+      console.log('Success:', responseData);
+
+      Alert.alert('Success', 'Extinguisher updated and inspection added successfully.');
+      setAddingInspection(false); // Reset the state to go back to the main inspection page
     } catch (error) {
-      Alert.alert('Error', 'An error occurred while updating the extinguisher details');
+      console.error('Error:', error);
+      Alert.alert('Error', 'An error occurred while adding the inspection.');
+    } finally {
+      setIsSubmitting(false); // Re-enable the button
     }
   };
 
-  if (showNewForm) {
-    return <NewForm extinguisherInfo={extinguisherInfo} />;
-  }
+  const pickImage = async () => {
+    const { status } = await Camera.requestCameraPermissionsAsync();
+    if (status !== 'granted') {
+      Alert.alert('Permission Denied', 'Camera access is required to capture images.');
+      return;
+    }
+
+    const result = await ImagePicker.launchCameraAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsEditing: true,
+      quality: 1,
+    });
+
+    if (!result.canceled) {
+      setImage(result.assets[0].uri);
+    }
+  };
+
+  const handleNextServiceDateChange = (event: any, selectedDate: Date | undefined) => {
+    setShowNextServiceDatePicker(false);
+    if (selectedDate) {
+      setNextServiceDate(selectedDate);
+    }
+  };
+
+  const handleNextRefillDateChange = (event: any, selectedDate: Date | undefined) => {
+    setShowNextRefillDatePicker(false);
+    if (selectedDate) {
+      setNextRefillDate(selectedDate);
+    }
+  };
+
+  const handleServicedDateChange = (event: any, selectedDate: Date | undefined) => {
+    setShowServicedDatePicker(false);
+    if (selectedDate) {
+      setServicedDate(selectedDate);
+    }
+  };
+
+  const handleRefilledDateChange = (event: any, selectedDate: Date | undefined) => {
+    setShowRefilledDatePicker(false);
+    if (selectedDate) {
+      setRefilledDate(selectedDate);
+    }
+  };
 
   return (
     <ScrollView style={styles.scrollView} contentContainerStyle={styles.contentContainer}>
       <View style={styles.formContainer}>
-        <View style={styles.navigationContainer}>
-          <TouchableOpacity onPress={() => navigation.goBack()} style={styles.iconButton}>
-            <Ionicons name="arrow-back" size={24} color="black" />
-          </TouchableOpacity>
-          <TouchableOpacity onPress={() => {/* Add forward navigation logic here */}} style={styles.iconButton}>
-            <Ionicons name="arrow-forward" size={24} color="gray" />
-          </TouchableOpacity>
-        </View>
         <TextInput
           placeholder="Cylinder Condition"
           value={cylinderCondition}
@@ -381,213 +442,37 @@ console.log(extinguisherInfo.id);
           onChangeText={setRemarks}
           style={styles.input}
         />
-        <TouchableOpacity style={styles.updateButton} onPress={handleSubmit}>
-          <Text style={styles.buttonText}>Update</Text>
+        <TextInput
+          placeholder="Notes"
+          value={notes}
+          onChangeText={setNotes}
+          style={styles.input}
+        />
+        <TextInput
+          placeholder="Status"
+          value={status}
+          onChangeText={setStatus}
+          style={styles.input}
+        />
+        <TouchableOpacity onPress={pickImage} style={styles.button}>
+          <Text style={styles.buttonText}>Capture Image</Text>
+        </TouchableOpacity>
+        {image && <Image source={{ uri: image }} style={styles.image} />}
+        <TouchableOpacity onPress={() => setAddingInspection(false)} style={styles.button}>
+          <Text style={styles.buttonText}>Back</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[styles.updateButton, isSubmitting && { backgroundColor: '#ccc' }]}
+          onPress={handleSubmit}
+          disabled={isSubmitting}
+        >
+          <Text style={styles.buttonText}>Submit</Text>
         </TouchableOpacity>
       </View>
     </ScrollView>
   );
 };
 
-
-interface InspectionData {
-  extinguisherId: number;
-  inspectionDate: string;
-  inspectorName: string;
-  notes: string;
-  status: string;
-  next_inspection_date: string;
-}
-
-const NewForm: React.FC<{ extinguisherInfo: { id: string } }> = ({ extinguisherInfo })=> {
-  const [notes, setNotes] = useState('');
-  const [status, setStatus] = useState('');
-  const [image, setImage] = useState<string | null>(null);
-  const [modalVisible, setModalVisible] = useState(false);
-  const [userRole, setUserRole] = useState('');
-  const [userPermissions, setUserPermissions] = useState([]);
-  const [inspections, setInspections] = useState([]);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    const fetchUserData = async () => {
-      try {
-        const userData = await AsyncStorage.getItem('loginData');
-        if (userData) {
-          const { user } = JSON.parse(userData);
-          setUserRole(user.role);
-          setUserPermissions(user.permissions);
-        }
-      } catch (error) {
-        console.error('Error fetching user data:', error);
-      }
-    };
-
-    fetchUserData();
-    fetchInspections();
-  }, []);
-
-  const fetchInspections = async () => {
-    try {
-      const userData = await AsyncStorage.getItem('loginData');
-      let token = '';
-
-      if (userData) {
-        const parsedData = JSON.parse(userData);
-        token = parsedData.token;
-      }
-
-      const response = await fetch(`${config.apiUrl}/inspection/add`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({}),
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        setInspections(data.inspections);
-      } else {
-        const errorData = await response.text();
-        console.error('Error fetching inspections:', response.status, errorData);
-      }
-    } catch (error) {
-      console.error('Error fetching inspections:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleSubmit = async () => {
-    if (!notes || !status || !image) {
-      Alert.alert('Validation Error', 'All fields and image upload are mandatory.');
-      return;
-    }
-
-    const data = new FormData();
-    data.append('extinguisherId', extinguisherInfo.id);
-    data.append('inspectionDate', new Date().toISOString().split('T')[0]);
-    data.append('inspectorName', 'John Doe');
-    data.append('notes', notes);
-    data.append('status', status);
-    data.append('next_inspection_date', '2024-01-01');
-    data.append('photo', {
-      uri: image,
-      name: 'photo.jpg',
-      type: 'image/jpeg',
-    } as any);
-
-    try {
-      const userData = await AsyncStorage.getItem('loginData');
-      let token = '';
-
-      if (userData) {
-        const parsedData = JSON.parse(userData);
-        token = parsedData.token;
-      }
-
-      const response = await fetch(`${config.apiUrl}/inspection/add`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'multipart/form-data',
-        },
-        body: data,
-      });
-
-      if (!response.ok) {
-        const errorData = await response.text();
-        throw new Error(`Network response was not ok: ${errorData}`);
-      }
-
-      const responseData = await response.json();
-      console.log('Success:', responseData);
-
-      // Show success alert
-      Alert.alert('Success', 'Inspection added successfully.');
-    } catch (error) {
-      console.error('Error:', error);
-      Alert.alert('Error', 'An error occurred while adding the inspection.');
-    }
-  };
-
-  const pickImage = async () => {
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      allowsEditing: true,
-      quality: 1,
-    });
-
-    if (!result.canceled) {
-      setImage(result.assets[0].uri);
-    }
-    setModalVisible(false);
-  };
-
-  const takePhoto = async () => {
-    const result = await ImagePicker.launchCameraAsync({
-      allowsEditing: true,
-      quality: 1,
-    });
-
-    if (!result.canceled) {
-      setImage(result.assets[0].uri);
-    }
-    setModalVisible(false);
-  };
-
-
-  return (
-    <View style={styles.formContainer1}>
-      <TextInput
-        placeholder="Status"
-        value={status}
-        onChangeText={setStatus}
-        style={styles.input}
-      />
-      <TextInput
-        placeholder="Notes"
-        value={notes}
-        onChangeText={setNotes}
-        style={styles.input}
-      />
-      <TouchableOpacity onPress={() => setModalVisible(true)} style={styles.button}>
-        <Text style={styles.buttonText}>Upload Image</Text>
-      </TouchableOpacity>
-      {image && <Image source={{ uri: image }} style={styles.image} />}
-      <TouchableOpacity style={styles.updateButton} onPress={handleSubmit}>
-        <Text style={styles.buttonText}>Add Inspection</Text>
-      </TouchableOpacity>
-
-      <Modal
-        animationType="slide"
-        transparent={true}
-        visible={modalVisible}
-        onRequestClose={() => setModalVisible(false)}
-      >
-        <View style={styles.modalContainer}>
-          <View style={styles.modalView}>
-            <Text style={styles.modalTitle}>Upload Image</Text>
-            <Text style={styles.modalSubtitle}>Choose an option</Text>
-            <View style={styles.modalButtons}>
-              <TouchableOpacity onPress={takePhoto} style={styles.modalButton}>
-                <Text style={styles.modalButtonText}>Camera</Text>
-              </TouchableOpacity>
-              <TouchableOpacity onPress={pickImage} style={styles.modalButton}>
-                <Text style={styles.modalButtonText}>Gallery</Text>
-              </TouchableOpacity>
-              <TouchableOpacity onPress={() => setModalVisible(false)} style={styles.modalButton}>
-                <Text style={styles.modalButtonText}>Cancel</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </View>
-      </Modal>
-    </View>
-  );
-};
 const styles = StyleSheet.create({
   container: {
     flex: 1,

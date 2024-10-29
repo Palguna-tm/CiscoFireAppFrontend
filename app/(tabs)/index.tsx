@@ -167,7 +167,7 @@ export default function HomeScreen() {
     setCameraOpen(false);
 
     try {
-        const response = await fetch('http://192.168.0.52:7001/extinguisher/decrypt', {
+        const response = await fetch(`${config.apiUrl}/extinguisher/decrypt`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
