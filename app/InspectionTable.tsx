@@ -13,7 +13,8 @@ type Inspection = {
   approval_status: string;
 };
 
-const InspectionTable = () => {
+const InspectionTable = ({ extinguisherid }: { extinguisherid: number }) => {
+  console.log(extinguisherid);
   const [inspections, setInspections] = useState<Inspection[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [userRole, setUserRole] = useState<string | null>(null);
@@ -43,7 +44,7 @@ const InspectionTable = () => {
         token = parsedData.token; // Assuming token is stored in loginData as `token`
       }
   
-      const response = await fetch('http://192.168.0.52:7001/inspection/28/inspections', {
+      const response = await fetch(`http://192.168.0.52:7001/inspection/${extinguisherid}/inspections`, {
         headers: {
           'Authorization': `Bearer ${token}`, // Add Bearer token here
           'Content-Type': 'application/json',

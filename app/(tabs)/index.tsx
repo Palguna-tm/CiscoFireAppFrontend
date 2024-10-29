@@ -4,8 +4,11 @@ import { CameraView, Camera } from "expo-camera"
 import { MaterialIcons } from '@expo/vector-icons';
 import config from '../config';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as Location from 'expo-location';
 
 import Collapsible from 'react-native-collapsible';
+import RNPickerSelect from 'react-native-picker-select';
+import { Country, State, City } from 'country-state-city';
 
 
 export default function HomeScreen() {
@@ -24,6 +27,88 @@ export default function HomeScreen() {
   const animatedLocationArrow = new Animated.Value(0);
   const animatedDetailsArrow = new Animated.Value(0);
 
+  const [formData, setFormData] = useState({
+    location: '',
+    block: '',
+    area: '',
+    type_capacity: '',
+    manufacture_year: '',
+    latitude: 0,
+    longitude: 0,
+    country: '',
+    state: '',
+    city: '',
+    floor: '',
+  });
+
+  const [selectedCountry, setSelectedCountry] = useState<string | null>(null);
+  const [selectedState, setSelectedState] = useState<string | null>(null);
+  const [selectedCity, setSelectedCity] = useState<string | null>(null);
+
+  useEffect(() => {
+    (async () => {
+      let { status } = await Location.requestForegroundPermissionsAsync();
+      if (status !== 'granted') {
+        Alert.alert('Permission to access location was denied');
+        return;
+      }
+
+      let location = await Location.getCurrentPositionAsync({});
+      setFormData((prevData) => ({
+        ...prevData,
+        latitude: location.coords.latitude,
+        longitude: location.coords.longitude,
+      }));
+    })();
+  }, []);
+
+  const handleInputChange = (name: string, value: string) => {
+    setFormData({ ...formData, [name]: value });
+  };
+
+  const handleSubmit = async () => {
+    try {
+      const userData = await AsyncStorage.getItem('loginData');
+      let token = '';
+
+      if (userData) {
+        const parsedData = JSON.parse(userData);
+        token = parsedData.token;
+      }
+
+      const dataToSubmit = {
+        ...formData,
+        manufacture_year: formData.manufacture_year ? parseInt(formData.manufacture_year) : null,
+        installation_year: new Date().getFullYear(),
+      };
+
+      const response = await fetch('http://192.168.0.52:7001/extinguisher/add', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+        body: JSON.stringify(dataToSubmit),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        if (errorData.error === "Duplicate extinguisher entry") {
+          Alert.alert('Error', 'Duplicate extinguisher entry');
+        } else {
+          console.error('Error:', errorData);
+          Alert.alert('Error', 'Failed to add extinguisher');
+        }
+      } else {
+        const responseData = await response.json();
+        console.log('Success:', responseData);
+        Alert.alert('Success', 'Extinguisher added successfully');
+      }
+    } catch (error) {
+      console.error('Error:', error);
+      Alert.alert('Error', 'An unexpected error occurred');
+    }
+  };
 
   useEffect(() => {
     const fetchUserData = async () => {
@@ -82,21 +167,22 @@ export default function HomeScreen() {
     setCameraOpen(false);
 
     try {
-      const parsedData = JSON.parse(data);
-      if (parsedData.id && parsedData.location && parsedData.block && parsedData.area) {
-        setScannedData(parsedData.id.toString());
-        const response = await fetch(`${config.apiUrl}/extinguisher/${parsedData.id}`);
+        const response = await fetch('http://192.168.0.52:7001/extinguisher/decrypt', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ encryptedData: data }),
+        });
+
         if (response.ok) {
-          const info = await response.json();
-          setExtinguisherInfo(info);
+            const info = await response.json();
+            setExtinguisherInfo(info);
         } else {
-          Alert.alert('Error', 'Failed to fetch extinguisher details');
+            Alert.alert('Error', 'Failed to decrypt QR code');
         }
-      } else {
-        Alert.alert('Invalid QR Code', 'The QR code does not contain valid extinguisher information.');
-      }
     } catch (error) {
-      Alert.alert('Error', 'An error occurred while processing the QR code');
+        Alert.alert('Error', 'An error occurred while processing the QR code');
     }
   };
 
@@ -146,18 +232,123 @@ export default function HomeScreen() {
         )}
       </View>
 
-      <TouchableOpacity
-        style={styles.qrTab}
-        onPress={() => {
-          setScanned(false);
-          setCameraOpen(true);
-        }}
-      >
-        <MaterialIcons name="qr-code-scanner" size={24} color="black" />
-        <Text style={styles.qrText}>Scan QR code</Text>
-      </TouchableOpacity>
+      {userRole === 'Inspector' && (
+        <ScrollView 
+          contentContainerStyle={styles.addFormContainer}
+          showsVerticalScrollIndicator={false}
+        >
+          <Text style={styles.inputLabel}>Add Fire Extinguisher Details</Text>
+          <TextInput
+            style={styles.input}
+            placeholder="Location"
+            value={formData.location}
+            onChangeText={(text) => handleInputChange('location', text)}
+          />
+          <TextInput
+            style={styles.input}
+            placeholder="Block"
+            value={formData.block}
+            onChangeText={(text) => handleInputChange('block', text)}
+          />
+          <TextInput
+            style={styles.input}
+            placeholder="Area"
+            value={formData.area}
+            onChangeText={(text) => handleInputChange('area', text)}
+          />
+          <TextInput
+            style={styles.input}
+            placeholder="Type/Capacity"
+            value={formData.type_capacity}
+            onChangeText={(text) => handleInputChange('type_capacity', text)}
+          />
+          <TextInput
+            style={styles.input}
+            placeholder="Manufacture Year"
+            keyboardType="numeric"
+            value={formData.manufacture_year}
+            onChangeText={(text) => handleInputChange('manufacture_year', text)}
+          />
 
-      {cameraOpen && (
+          <RNPickerSelect
+            onValueChange={(value) => {
+              setSelectedCountry(value);
+              handleInputChange('country', value ?? '');
+            }}
+            items={Country.getAllCountries().map((country) => ({
+              label: country.name,
+              value: country.isoCode,
+            }))}
+            placeholder={{ label: "Select a country", value: null }}
+            style={{
+              ...pickerSelectStyles,
+              inputIOS: {
+                ...pickerSelectStyles.inputIOS,
+                borderRadius: 50,
+              },
+              inputAndroid: {
+                ...pickerSelectStyles.inputAndroid,
+                borderRadius: 50,
+              },
+            }}
+          />
+
+          <RNPickerSelect
+            onValueChange={(value) => {
+              setSelectedState(value);
+              handleInputChange('state', value ?? '');
+            }}
+            items={selectedCountry ? State.getStatesOfCountry(selectedCountry).map((state) => ({
+              label: state.name,
+              value: state.isoCode,
+            })) : []}
+            placeholder={{ label: "Select a state", value: null }}
+            style={pickerSelectStyles}
+          />
+
+          <RNPickerSelect
+            onValueChange={(value) => {
+              setSelectedCity(value);
+              handleInputChange('city', value ?? '');
+            }}
+            items={
+              selectedCountry && selectedState
+                ? City.getCitiesOfState(selectedCountry, selectedState).map((city) => ({
+                    label: city.name,
+                    value: city.name,
+                  }))
+                : []
+            }
+            placeholder={{ label: "Select a city", value: null }}
+            style={pickerSelectStyles}
+          />
+
+          <TextInput
+            style={styles.input}
+            placeholder="Floor"
+            value={formData.floor}
+            onChangeText={(text) => handleInputChange('floor', text)}
+          />
+          <TouchableOpacity style={styles.updateButton} onPress={handleSubmit}>
+            <Text style={styles.buttonText}>Submit</Text>
+          </TouchableOpacity>
+        </ScrollView>
+      )}
+
+      {userRole === 'Admin' && (
+        <TouchableOpacity
+          style={styles.qrTab}
+          onPress={() => {
+            setScanned(false);
+            setCameraOpen(true);
+          }}
+        >
+          <MaterialIcons name="qr-code-scanner" size={24} color="black" />
+          <Text style={styles.qrText}>Scan QR code</Text>
+        </TouchableOpacity>
+      )}
+
+      {cameraOpen && userRole === 'Admin' && (
         
         <View style={styles.cameraContainer}>
           <CameraView
@@ -255,6 +446,39 @@ export default function HomeScreen() {
     </View>
   );
 }
+
+const pickerSelectStyles = StyleSheet.create({
+  inputIOS: {
+    height: 50,
+    borderColor: '#ccc',
+    borderWidth: 1,
+    borderRadius: 50,
+    marginBottom: 15,
+    paddingHorizontal: 20,
+    width: '100%',
+    backgroundColor: '#fff',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 5,
+    elevation: 3,
+  },
+  inputAndroid: {
+    height: 50,
+    borderColor: '#ccc',
+    borderWidth: 1,
+    borderRadius: 50,
+    marginBottom: 15,
+    paddingHorizontal: 20,
+    width: '100%',
+    backgroundColor: '#fff',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 5,
+    elevation: 3,
+  },
+});
 
 const styles = StyleSheet.create({
   container: {
@@ -398,22 +622,31 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   addFormContainer: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    justifyContent: 'center',
+    paddingVertical: 20,
+    paddingHorizontal: 20,
     alignItems: 'center',
-    backgroundColor: 'rgba(255, 255, 255, 0.8)',
   },
   input: {
-    borderWidth: 1,
+    height: 50,
     borderColor: '#ccc',
-    borderRadius: 5,
-    padding: 10,
-    marginBottom: 10,
-    width: '80%',
+    borderWidth: 1,
+    borderRadius: 25,
+    marginBottom: 15,
+    paddingHorizontal: 20,
+    width: '100%',
+    backgroundColor: '#fff',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 5,
+    elevation: 3,
+  },
+  inputLabel: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#333',
+    marginBottom: 20,
+    textAlign: 'center',
   },
   collapsibleHeaderContainer: {
     flexDirection: 'row',
@@ -434,6 +667,39 @@ const styles = StyleSheet.create({
   collapsibleHeader: {
     fontSize: 18,
     fontWeight: 'bold',
+  },
+  updateButton: {
+    backgroundColor: '#007BFF',
+    padding: 15,
+    borderRadius: 30,
+    alignItems: 'center',
+    width: '95%',
+    marginTop: 20,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 5,
+    elevation: 3,
+  },
+  datePicker: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    borderWidth: 1,
+    borderColor: '#ddd',
+    borderRadius: 25,
+    padding: 15,
+    marginBottom: 15,
+    width: '90%',
+    backgroundColor: '#fff',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 5,
+    elevation: 2,
+  },
+  dateText: {
+    flex: 1,
   },
 });
 

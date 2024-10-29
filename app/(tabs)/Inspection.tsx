@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { View, Text, StyleSheet, Alert, TouchableOpacity, ActivityIndicator, Animated, Button, Easing, TextInput, ScrollView, Platform } from 'react-native';
+import { View, Text, StyleSheet, Alert, TouchableOpacity, ActivityIndicator, Animated, Button, Easing, TextInput, ScrollView, Platform, Image, Modal } from 'react-native';
 import { Camera, CameraView } from 'expo-camera';
 import { MaterialIcons, Ionicons } from '@expo/vector-icons';
 import config from '../config';
@@ -10,6 +10,7 @@ import InspectionTable from '../InspectionTable';
 import { useRouter } from 'expo-router'; // Import useRouter
 import DateTimePicker from '@react-native-community/datetimepicker';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as ImagePicker from 'expo-image-picker';
 
 // Define the navigation prop type
 type InspectionScreenNavigationProp = StackNavigationProp<
@@ -71,19 +72,21 @@ const InspectionScreen: React.FC<InspectionScreenProps> = ({ userRole = 'User', 
     setCameraOpen(false);
 
     try {
-      const parsedData = JSON.parse(data);
-      if (parsedData.id) {
-        const response = await fetch(`${config.apiUrl}/extinguisher/${parsedData.id}`);
-        if (response.ok) {
-          const info = await response.json();
-          setExtinguisherInfo(info);
-          setShowOptions(true); // Show options after fetching details
-          Alert.alert('Success', 'Extinguisher details fetched successfully');
-        } else {
-          Alert.alert('Error', 'Failed to fetch extinguisher details');
-        }
+      const response = await fetch('http://192.168.0.52:7001/extinguisher/decrypt', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ encryptedData: data }),
+      });
+
+      if (response.ok) {
+        const info = await response.json();
+        setExtinguisherInfo(info);
+        setShowOptions(true); // Show options after fetching details
+        Alert.alert('Success', 'Extinguisher details fetched successfully');
       } else {
-        Alert.alert('Invalid QR Code', 'The QR code does not contain valid extinguisher information.');
+        Alert.alert('Error', 'Failed to fetch extinguisher details');
       }
     } catch (error) {
       Alert.alert('Error', 'An error occurred while processing the QR code');
@@ -105,7 +108,8 @@ const InspectionScreen: React.FC<InspectionScreenProps> = ({ userRole = 'User', 
         </TouchableOpacity>
         <TouchableOpacity
           style={styles.pillButton}
-          onPress={() => router.push('/InspectionTable')}
+          
+          onPress={() => router.push({ pathname: '/InspectionTable', params: { extinguisherid: extinguisherInfo.id } })}
         >
           <Text style={styles.buttonText}>Get Inspection Details</Text>
         </TouchableOpacity>
@@ -249,7 +253,7 @@ const InspectionForm: React.FC<{ extinguisherInfo: { id: string } }> = ({ exting
       next_service_date: nextServiceDate ? nextServiceDate.toISOString().split('T')[0] : '',
       remarks,
     };
-
+console.log(extinguisherInfo.id);
     try {
       const response = await fetch(`${config.apiUrl}/extinguisher/${extinguisherInfo.id}`, {
         method: 'PUT',
@@ -271,12 +275,20 @@ const InspectionForm: React.FC<{ extinguisherInfo: { id: string } }> = ({ exting
   };
 
   if (showNewForm) {
-    return <NewForm />;
+    return <NewForm extinguisherInfo={extinguisherInfo} />;
   }
 
   return (
     <ScrollView style={styles.scrollView} contentContainerStyle={styles.contentContainer}>
       <View style={styles.formContainer}>
+        <View style={styles.navigationContainer}>
+          <TouchableOpacity onPress={() => navigation.goBack()} style={styles.iconButton}>
+            <Ionicons name="arrow-back" size={24} color="black" />
+          </TouchableOpacity>
+          <TouchableOpacity onPress={() => {/* Add forward navigation logic here */}} style={styles.iconButton}>
+            <Ionicons name="arrow-forward" size={24} color="gray" />
+          </TouchableOpacity>
+        </View>
         <TextInput
           placeholder="Cylinder Condition"
           value={cylinderCondition}
@@ -378,7 +390,6 @@ const InspectionForm: React.FC<{ extinguisherInfo: { id: string } }> = ({ exting
 };
 
 
-
 interface InspectionData {
   extinguisherId: number;
   inspectionDate: string;
@@ -388,9 +399,11 @@ interface InspectionData {
   next_inspection_date: string;
 }
 
-const NewForm: React.FC = () => {
+const NewForm: React.FC<{ extinguisherInfo: { id: string } }> = ({ extinguisherInfo })=> {
   const [notes, setNotes] = useState('');
   const [status, setStatus] = useState('');
+  const [image, setImage] = useState<string | null>(null);
+  const [modalVisible, setModalVisible] = useState(false);
   const [userRole, setUserRole] = useState('');
   const [userPermissions, setUserPermissions] = useState([]);
   const [inspections, setInspections] = useState([]);
@@ -448,19 +461,23 @@ const NewForm: React.FC = () => {
   };
 
   const handleSubmit = async () => {
-    if (!notes || !status) {
-      Alert.alert('Validation Error', 'All fields are mandatory.');
+    if (!notes || !status || !image) {
+      Alert.alert('Validation Error', 'All fields and image upload are mandatory.');
       return;
     }
 
-    const data: InspectionData = {
-      extinguisherId: 28,
-      inspectionDate: new Date().toISOString().split('T')[0],
-      inspectorName: "John Doe",
-      notes: notes,
-      status: status,
-      next_inspection_date: "2024-01-01"
-    };
+    const data = new FormData();
+    data.append('extinguisherId', extinguisherInfo.id);
+    data.append('inspectionDate', new Date().toISOString().split('T')[0]);
+    data.append('inspectorName', 'John Doe');
+    data.append('notes', notes);
+    data.append('status', status);
+    data.append('next_inspection_date', '2024-01-01');
+    data.append('photo', {
+      uri: image,
+      name: 'photo.jpg',
+      type: 'image/jpeg',
+    } as any);
 
     try {
       const userData = await AsyncStorage.getItem('loginData');
@@ -475,9 +492,9 @@ const NewForm: React.FC = () => {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
+          'Content-Type': 'multipart/form-data',
         },
-        body: JSON.stringify(data),
+        body: data,
       });
 
       if (!response.ok) {
@@ -487,10 +504,40 @@ const NewForm: React.FC = () => {
 
       const responseData = await response.json();
       console.log('Success:', responseData);
+
+      // Show success alert
+      Alert.alert('Success', 'Inspection added successfully.');
     } catch (error) {
       console.error('Error:', error);
+      Alert.alert('Error', 'An error occurred while adding the inspection.');
     }
   };
+
+  const pickImage = async () => {
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsEditing: true,
+      quality: 1,
+    });
+
+    if (!result.canceled) {
+      setImage(result.assets[0].uri);
+    }
+    setModalVisible(false);
+  };
+
+  const takePhoto = async () => {
+    const result = await ImagePicker.launchCameraAsync({
+      allowsEditing: true,
+      quality: 1,
+    });
+
+    if (!result.canceled) {
+      setImage(result.assets[0].uri);
+    }
+    setModalVisible(false);
+  };
+
 
   return (
     <View style={styles.formContainer1}>
@@ -506,9 +553,38 @@ const NewForm: React.FC = () => {
         onChangeText={setNotes}
         style={styles.input}
       />
+      <TouchableOpacity onPress={() => setModalVisible(true)} style={styles.button}>
+        <Text style={styles.buttonText}>Upload Image</Text>
+      </TouchableOpacity>
+      {image && <Image source={{ uri: image }} style={styles.image} />}
       <TouchableOpacity style={styles.updateButton} onPress={handleSubmit}>
         <Text style={styles.buttonText}>Add Inspection</Text>
       </TouchableOpacity>
+
+      <Modal
+        animationType="slide"
+        transparent={true}
+        visible={modalVisible}
+        onRequestClose={() => setModalVisible(false)}
+      >
+        <View style={styles.modalContainer}>
+          <View style={styles.modalView}>
+            <Text style={styles.modalTitle}>Upload Image</Text>
+            <Text style={styles.modalSubtitle}>Choose an option</Text>
+            <View style={styles.modalButtons}>
+              <TouchableOpacity onPress={takePhoto} style={styles.modalButton}>
+                <Text style={styles.modalButtonText}>Camera</Text>
+              </TouchableOpacity>
+              <TouchableOpacity onPress={pickImage} style={styles.modalButton}>
+                <Text style={styles.modalButtonText}>Gallery</Text>
+              </TouchableOpacity>
+              <TouchableOpacity onPress={() => setModalVisible(false)} style={styles.modalButton}>
+                <Text style={styles.modalButtonText}>Cancel</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 };
@@ -652,18 +728,18 @@ const styles = StyleSheet.create({
     elevation: 3,
   },
   button: {
-    backgroundColor: '#007BFF',
-    borderRadius: 25, // Rounded corners
+    backgroundColor: '#28A745',
+    borderRadius: 25,
     paddingVertical: 15,
-    width: '90%', // Consistent width with inputs
+    width: '40%',
     alignItems: 'center',
     justifyContent: 'center',
-    marginTop: 20,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 5,
-    elevation: 3,
+    marginTop: 10,
+  },
+  buttonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: 'bold',
   },
   datePicker: {
     flexDirection: 'row',
@@ -697,10 +773,72 @@ const styles = StyleSheet.create({
     shadowRadius: 5,
     elevation: 3,
   },
-  buttonText: {
-    color: '#fff',
-    fontSize: 16,
+  image: {
+    width: 200,
+    height: 200,
+    marginTop: 20,
+  },
+  modalContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+  },
+  modalView: {
+    width: 300,
+    backgroundColor: 'white',
+    borderRadius: 20,
+    padding: 20,
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+    elevation: 5,
+  },
+  modalTitle: {
+    marginBottom: 10,
+    textAlign: 'center',
+    fontSize: 20,
     fontWeight: 'bold',
+  },
+  modalSubtitle: {
+    marginBottom: 20,
+    textAlign: 'center',
+    fontSize: 16,
+    color: '#666',
+  },
+  modalButtons: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    width: '100%',
+  },
+  modalButton: {
+    flex: 1,
+    marginHorizontal: 5,
+    backgroundColor: '#007BFF',
+    borderRadius: 10,
+    padding: 10,
+    alignItems: 'center',
+  },
+
+ 
+ 
+  modalButtonText: {
+    color: 'white',
+    fontWeight: 'bold',
+  },
+  navigationContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    width: '100%',
+    marginBottom: 20,
+  },
+  iconButton: {
+    padding: 10,
   },
 });
 
