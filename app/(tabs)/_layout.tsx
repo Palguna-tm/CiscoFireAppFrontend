@@ -59,9 +59,6 @@ export default function TabLayout() {
   };
 
   return (
-    
-      
-       
     <Tabs
       screenOptions={{
         tabBarActiveTintColor: Colors[colorScheme ?? 'light'].tint,
@@ -70,8 +67,7 @@ export default function TabLayout() {
         headerShown: true,
         tabBarLabelStyle: { color: 'white' },
         headerTitle: () => (
-          <View style={styles.logoContainer}>
-          </View>
+          <Image source={require('../../assets/images/splash.png')} style={styles.logo} />
         ),
         headerRight: () => (
           <View style={styles.headerIcons}>
@@ -130,18 +126,11 @@ export default function TabLayout() {
         }}
       />
        
-
     </Tabs>
   );
 }
 
 const styles = StyleSheet.create({
-  logoContainer: {
-    backgroundColor: '#000',
-    padding: 0,
-    paddingHorizontal: 10,
-    borderRadius: 10,
-  },
   logo: {
     width: 60,
     height: 40,

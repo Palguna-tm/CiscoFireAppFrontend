@@ -58,7 +58,7 @@ const Add = () => {
           <Text style={styles.infoText}>Username: {userInfo.username}</Text>
           <Text style={styles.infoText}>Email: {userInfo.email}</Text>
           <Text style={styles.infoText}>Role: {userInfo.role}</Text>
-          <Text style={styles.infoText}>Permissions: {userInfo.permissions.join(', ')}</Text>
+          {/* <Text style={styles.infoText}>Permissions: {userInfo.permissions.join(', ')}</Text> */}
         </View>
       )}
     </ScrollView>
