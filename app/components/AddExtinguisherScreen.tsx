@@ -17,7 +17,7 @@ export default function AddExtinguisherScreen() {
       <TextInput
         style={styles.input}
         placeholder="Location"
-        // Add other input fields and logic for adding extinguisher
+      
       />
       <Button title="Submit" onPress={handleAddExtinguisher} />
     </View>

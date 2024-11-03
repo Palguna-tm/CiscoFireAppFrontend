@@ -59,9 +59,6 @@ export default function TabLayout() {
   };
 
   return (
-    
-      
-       
     <Tabs
       screenOptions={{
         tabBarActiveTintColor: Colors[colorScheme ?? 'light'].tint,
@@ -134,7 +131,6 @@ export default function TabLayout() {
         }}
       />
        
-
     </Tabs>
   );
 }
