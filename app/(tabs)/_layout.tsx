@@ -39,7 +39,7 @@ export default function TabLayout() {
       console.log("Attempting to log out...");
       await AsyncStorage.removeItem('loginData');
       console.log("User data removed, redirecting to login page...");
-      router.replace('./(login)');
+      router.replace('/LoginScreen');
     } catch (error) {
       console.error("Logout failed:", error);
     }
@@ -71,6 +71,10 @@ export default function TabLayout() {
         tabBarLabelStyle: { color: 'white' },
         headerTitle: () => (
           <View style={styles.logoContainer}>
+            <Image
+              source={require('../../assets/images/logo-exo.png')}
+              style={styles.logo}
+            />
           </View>
         ),
         headerRight: () => (
@@ -137,7 +141,7 @@ export default function TabLayout() {
 
 const styles = StyleSheet.create({
   logoContainer: {
-    backgroundColor: '#000',
+    backgroundColor: '#fff',
     padding: 0,
     paddingHorizontal: 10,
     borderRadius: 10,

@@ -53,12 +53,18 @@ export default function HomeScreen() {
         return;
       }
 
-      let location = await Location.getCurrentPositionAsync({});
-      setFormData((prevData) => ({
-        ...prevData,
-        latitude: location.coords.latitude,
-        longitude: location.coords.longitude,
-      }));
+      try {
+        let location = await Location.getCurrentPositionAsync({});
+        console.log('Retrieved location:', location);
+        setFormData((prevData) => ({
+          ...prevData,
+          latitude: location.coords.latitude,
+          longitude: location.coords.longitude,
+        }));
+      } catch (error) {
+        console.error('Error retrieving location:', error);
+        Alert.alert('Error', 'Failed to retrieve location');
+      }
     })();
   }, []);
 
@@ -82,7 +88,7 @@ export default function HomeScreen() {
         installation_year: new Date().getFullYear(),
       };
 
-      const response = await fetch('http://192.168.0.52:7001/extinguisher/add', {
+      const response = await fetch(`${config.apiUrl}/extinguisher/add`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -222,228 +228,232 @@ export default function HomeScreen() {
   }
 
   return (
-    <View style={styles.container}>
-      <View style={styles.header}>
-        <Text style={styles.greeting}>{greeting}</Text>
-        {(userRole === 'Admin' && userPermissions.includes('Full read and write')) && (
-          <TouchableOpacity style={styles.addButton} onPress={() => setShowAddForm(!showAddForm)}>
-            <Text style={styles.buttonText}>Add Extinguisher</Text>
+    <ScrollView contentContainerStyle={styles.scrollContainer}>
+      <View style={styles.container}>
+        <View style={styles.header}>
+          <Text style={styles.greeting}>{greeting}</Text>
+          {(userRole === 'Admin' && userPermissions.includes('Full read and write')) && (
+            <TouchableOpacity style={styles.addButton} onPress={() => setShowAddForm(!showAddForm)}>
+              <Text style={styles.buttonText}>Add Extinguisher</Text>
+            </TouchableOpacity>
+          )}
+        </View>
+
+        {userRole === 'Admin' && (
+          <>
+            <TouchableOpacity onPress={() => setShowAddForm(!showAddForm)} style={styles.collapsibleHeaderContainer}>
+              <Text style={styles.collapsibleHeader}>Add Fire Extinguisher Details</Text>
+              <Animated.View style={{ transform: [{ rotate: showAddForm ? '180deg' : '0deg' }] }}>
+                <MaterialIcons name="keyboard-arrow-down" size={24} color="black" />
+              </Animated.View>
+            </TouchableOpacity>
+            <Collapsible collapsed={!showAddForm}>
+              <ScrollView 
+                contentContainerStyle={styles.addFormContainer}
+                showsVerticalScrollIndicator={false}
+              >
+                <TextInput
+                  style={styles.input}
+                  placeholder="Location"
+                  value={formData.location}
+                  onChangeText={(text) => handleInputChange('location', text)}
+                />
+                <TextInput
+                  style={styles.input}
+                  placeholder="Block"
+                  value={formData.block}
+                  onChangeText={(text) => handleInputChange('block', text)}
+                />
+                <TextInput
+                  style={styles.input}
+                  placeholder="Area"
+                  value={formData.area}
+                  onChangeText={(text) => handleInputChange('area', text)}
+                />
+                <TextInput
+                  style={styles.input}
+                  placeholder="Type/Capacity"
+                  value={formData.type_capacity}
+                  onChangeText={(text) => handleInputChange('type_capacity', text)}
+                />
+                <TextInput
+                  style={styles.input}
+                  placeholder="Manufacture Year"
+                  keyboardType="numeric"
+                  value={formData.manufacture_year}
+                  onChangeText={(text) => handleInputChange('manufacture_year', text)}
+                />
+
+                <RNPickerSelect
+                  onValueChange={(value) => {
+                    setSelectedCountry(value);
+                    handleInputChange('country', value ?? '');
+                  }}
+                  items={Country.getAllCountries().map((country) => ({
+                    label: country.name,
+                    value: country.isoCode,
+                  }))}
+                  placeholder={{ label: "Select a country", value: null }}
+                  style={{
+                    ...pickerSelectStyles,
+                    inputIOS: {
+                      ...pickerSelectStyles.inputIOS,
+                      borderRadius: 50,
+                    },
+                    inputAndroid: {
+                      ...pickerSelectStyles.inputAndroid,
+                      borderRadius: 50,
+                    },
+                  }}
+                />
+
+                <RNPickerSelect
+                  onValueChange={(value) => {
+                    setSelectedState(value);
+                    handleInputChange('state', value ?? '');
+                  }}
+                  items={selectedCountry ? State.getStatesOfCountry(selectedCountry).map((state) => ({
+                    label: state.name,
+                    value: state.isoCode,
+                  })) : []}
+                  placeholder={{ label: "Select a state", value: null }}
+                  style={pickerSelectStyles}
+                />
+
+                <RNPickerSelect
+                  onValueChange={(value) => {
+                    setSelectedCity(value);
+                    handleInputChange('city', value ?? '');
+                  }}
+                  items={
+                    selectedCountry && selectedState
+                      ? City.getCitiesOfState(selectedCountry, selectedState).map((city) => ({
+                          label: city.name,
+                          value: city.name,
+                        }))
+                      : []
+                  }
+                  placeholder={{ label: "Select a city", value: null }}
+                  style={pickerSelectStyles}
+                />
+
+                <TextInput
+                  style={styles.input}
+                  placeholder="Floor"
+                  value={formData.floor}
+                  onChangeText={(text) => handleInputChange('floor', text)}
+                />
+                <TouchableOpacity style={styles.updateButton} onPress={handleSubmit}>
+                  <Text style={styles.buttonText}>Submit</Text>
+                </TouchableOpacity>
+              </ScrollView>
+            </Collapsible>
+          </>
+        )}
+
+        {(userRole === 'Inspector' || userRole === 'Admin') && (
+          <TouchableOpacity
+            style={styles.qrTab}
+            onPress={() => {
+              setScanned(false);
+              setCameraOpen(true);
+            }}
+          >
+            <MaterialIcons name="qr-code-scanner" size={24} color="black" />
+            <Text style={styles.qrText}>Scan QR code</Text>
           </TouchableOpacity>
         )}
-      </View>
 
-      {userRole === 'Inspector' && (
-        <ScrollView 
-          contentContainerStyle={styles.addFormContainer}
-          showsVerticalScrollIndicator={false}
-        >
-          <Text style={styles.inputLabel}>Add Fire Extinguisher Details</Text>
-          <TextInput
-            style={styles.input}
-            placeholder="Location"
-            value={formData.location}
-            onChangeText={(text) => handleInputChange('location', text)}
-          />
-          <TextInput
-            style={styles.input}
-            placeholder="Block"
-            value={formData.block}
-            onChangeText={(text) => handleInputChange('block', text)}
-          />
-          <TextInput
-            style={styles.input}
-            placeholder="Area"
-            value={formData.area}
-            onChangeText={(text) => handleInputChange('area', text)}
-          />
-          <TextInput
-            style={styles.input}
-            placeholder="Type/Capacity"
-            value={formData.type_capacity}
-            onChangeText={(text) => handleInputChange('type_capacity', text)}
-          />
-          <TextInput
-            style={styles.input}
-            placeholder="Manufacture Year"
-            keyboardType="numeric"
-            value={formData.manufacture_year}
-            onChangeText={(text) => handleInputChange('manufacture_year', text)}
-          />
-
-          <RNPickerSelect
-            onValueChange={(value) => {
-              setSelectedCountry(value);
-              handleInputChange('country', value ?? '');
-            }}
-            items={Country.getAllCountries().map((country) => ({
-              label: country.name,
-              value: country.isoCode,
-            }))}
-            placeholder={{ label: "Select a country", value: null }}
-            style={{
-              ...pickerSelectStyles,
-              inputIOS: {
-                ...pickerSelectStyles.inputIOS,
-                borderRadius: 50,
-              },
-              inputAndroid: {
-                ...pickerSelectStyles.inputAndroid,
-                borderRadius: 50,
-              },
-            }}
-          />
-
-          <RNPickerSelect
-            onValueChange={(value) => {
-              setSelectedState(value);
-              handleInputChange('state', value ?? '');
-            }}
-            items={selectedCountry ? State.getStatesOfCountry(selectedCountry).map((state) => ({
-              label: state.name,
-              value: state.isoCode,
-            })) : []}
-            placeholder={{ label: "Select a state", value: null }}
-            style={pickerSelectStyles}
-          />
-
-          <RNPickerSelect
-            onValueChange={(value) => {
-              setSelectedCity(value);
-              handleInputChange('city', value ?? '');
-            }}
-            items={
-              selectedCountry && selectedState
-                ? City.getCitiesOfState(selectedCountry, selectedState).map((city) => ({
-                    label: city.name,
-                    value: city.name,
-                  }))
-                : []
-            }
-            placeholder={{ label: "Select a city", value: null }}
-            style={pickerSelectStyles}
-          />
-
-          <TextInput
-            style={styles.input}
-            placeholder="Floor"
-            value={formData.floor}
-            onChangeText={(text) => handleInputChange('floor', text)}
-          />
-          <TouchableOpacity style={styles.updateButton} onPress={handleSubmit}>
-            <Text style={styles.buttonText}>Submit</Text>
-          </TouchableOpacity>
-        </ScrollView>
-      )}
-
-      {userRole === 'Admin' && (
-        <TouchableOpacity
-          style={styles.qrTab}
-          onPress={() => {
-            setScanned(false);
-            setCameraOpen(true);
-          }}
-        >
-          <MaterialIcons name="qr-code-scanner" size={24} color="black" />
-          <Text style={styles.qrText}>Scan QR code</Text>
-        </TouchableOpacity>
-      )}
-
-      {cameraOpen && userRole === 'Admin' && (
-        
-        <View style={styles.cameraContainer}>
-          <CameraView
-            onBarcodeScanned={scanned ? undefined : handleBarCodeScanned}
-            barcodeScannerSettings={{
-              barcodeTypes: ["qr", "pdf417"],
-            }}
-            style={StyleSheet.absoluteFillObject}
-          />
-          <View style={styles.overlay}>
-            <View style={styles.topOverlay} />
-            <View style={styles.middleOverlay}>
-              <View style={styles.sideOverlay} />
-              <View style={styles.focused}>
-                <Animated.View
-                  style={[
-                    styles.animatedLine,
-                    {
-                      transform: [
-                        {
-                          translateY: animatedValue.interpolate({
-                            inputRange: [0, 1],
-                            outputRange: [0, 200],
-                          }),
-                        },
-                      ],
-                    },
-                  ]}
-                />
+        {cameraOpen && (userRole === 'Inspector' || userRole === 'Admin') && (
+          
+          <View style={styles.cameraContainer}>
+            <CameraView
+              onBarcodeScanned={scanned ? undefined : handleBarCodeScanned}
+              barcodeScannerSettings={{
+                barcodeTypes: ["qr", "pdf417"],
+              }}
+              style={StyleSheet.absoluteFillObject}
+            />
+            <View style={styles.overlay}>
+              <View style={styles.topOverlay} />
+              <View style={styles.middleOverlay}>
+                <View style={styles.sideOverlay} />
+                <View style={styles.focused}>
+                  <Animated.View
+                    style={[
+                      styles.animatedLine,
+                      {
+                        transform: [
+                          {
+                            translateY: animatedValue.interpolate({
+                              inputRange: [0, 1],
+                              outputRange: [0, 200],
+                            }),
+                          },
+                        ],
+                      },
+                    ]}
+                  />
+                </View>
+                <View style={styles.sideOverlay} />
               </View>
-              <View style={styles.sideOverlay} />
+              <View style={styles.bottomOverlay} />
             </View>
-            <View style={styles.bottomOverlay} />
+            <View style={styles.buttonContainer}>
+              <Button title="Back" onPress={() => setCameraOpen(false)} color="#841584" />
+            </View>
           </View>
-          <View style={styles.buttonContainer}>
-            <Button title="Back" onPress={() => setCameraOpen(false)} color="#841584" />
-          </View>
-        </View>
-        
-      )}
+          
+        )}
 
-      {extinguisherInfo && (
-        <ScrollView style={styles.infoContainer}>
-          <TouchableOpacity onPress={toggleLocationCollapse} style={styles.collapsibleHeaderContainer}>
-            <Text style={styles.collapsibleHeader}>Extinguisher Location details:</Text>
-            <Animated.View style={{ transform: [{ rotate: animatedLocationArrow.interpolate({ inputRange: [0, 1], outputRange: ['0deg', '180deg'] }) }] }}>
-              <MaterialIcons name="keyboard-arrow-down" size={24} color="black" />
-            </Animated.View>
-          </TouchableOpacity>
-          <Collapsible collapsed={isLocationCollapsed}>
-            <View style={styles.collapsibleContent}>
-              <Text style={styles.infoText}>Location: {extinguisherInfo.location}</Text>
-              <Text style={styles.infoText}>Block: {extinguisherInfo.block}</Text>
-              <Text style={styles.infoText}>Area: {extinguisherInfo.area}</Text>
-              <Text style={styles.infoText}>Floor: {extinguisherInfo.floor}</Text>
-              <Text style={styles.infoText}>Country: {extinguisherInfo.country}</Text>
-              <Text style={styles.infoText}>State: {extinguisherInfo.state}</Text>
-              <Text style={styles.infoText}>City: {extinguisherInfo.city}</Text>
-              <Text style={styles.infoText}>Installation Year: {new Date(extinguisherInfo.installation_year).toLocaleDateString()}</Text>
-            </View>
-          </Collapsible>
+        {extinguisherInfo && (
+          <ScrollView style={styles.infoContainer}>
+            <TouchableOpacity onPress={toggleLocationCollapse} style={styles.collapsibleHeaderContainer}>
+              <Text style={styles.collapsibleHeader}>Extinguisher Location details:</Text>
+              <Animated.View style={{ transform: [{ rotate: animatedLocationArrow.interpolate({ inputRange: [0, 1], outputRange: ['0deg', '180deg'] }) }] }}>
+                <MaterialIcons name="keyboard-arrow-down" size={24} color="black" />
+              </Animated.View>
+            </TouchableOpacity>
+            <Collapsible collapsed={isLocationCollapsed}>
+              <View style={styles.collapsibleContent}>
+                <Text style={styles.infoText}>Location: {extinguisherInfo.location}</Text>
+                <Text style={styles.infoText}>Block: {extinguisherInfo.block}</Text>
+                <Text style={styles.infoText}>Area: {extinguisherInfo.area}</Text>
+                <Text style={styles.infoText}>Floor: {extinguisherInfo.floor}</Text>
+                <Text style={styles.infoText}>Country: {extinguisherInfo.country}</Text>
+                <Text style={styles.infoText}>State: {extinguisherInfo.state}</Text>
+                <Text style={styles.infoText}>City: {extinguisherInfo.city}</Text>
+                <Text style={styles.infoText}>Installation Year: {new Date(extinguisherInfo.installation_year).toLocaleDateString()}</Text>
+              </View>
+            </Collapsible>
 
-          <TouchableOpacity onPress={toggleDetailsCollapse} style={styles.collapsibleHeaderContainer}>
-            <Text style={styles.collapsibleHeader}>Extinguisher Details:</Text>
-            <Animated.View style={{ transform: [{ rotate: animatedDetailsArrow.interpolate({ inputRange: [0, 1], outputRange: ['0deg', '180deg'] }) }] }}>
-              <MaterialIcons name="keyboard-arrow-down" size={24} color="black" />
-            </Animated.View>
-          </TouchableOpacity>
-          <Collapsible collapsed={isDetailsCollapsed}>
-            <View style={styles.collapsibleContent}>
-              <Text style={styles.infoText}>Type/Capacity: {extinguisherInfo.type_capacity}</Text>
-              <Text style={styles.infoText}>Manufacture Year: {extinguisherInfo.manufacture_year}</Text>
-              <Text style={styles.infoText}>Cylinder Condition: {extinguisherInfo.cylinder_condition}</Text>
-              <Text style={styles.infoText}>Hose Condition: {extinguisherInfo.hose_condition}</Text>
-              <Text style={styles.infoText}>Stand Condition: {extinguisherInfo.stand_condition}</Text>
-              <Text style={styles.infoText}>Full Weight: {extinguisherInfo.full_weight}</Text>
-              <Text style={styles.infoText}>Actual Weight: {extinguisherInfo.actual_weight}</Text>
-              <Text style={styles.infoText}>Refilled Date: {extinguisherInfo.refilled_date ? new Date(extinguisherInfo.refilled_date).toLocaleDateString() : 'N/A'}</Text>
-              <Text style={styles.infoText}>Next Refill Date: {extinguisherInfo.next_refill_date ? new Date(extinguisherInfo.next_refill_date).toLocaleDateString() : 'N/A'}</Text>
-              <Text style={styles.infoText}>Serviced Date: {extinguisherInfo.serviced_date ? new Date(extinguisherInfo.serviced_date).toLocaleDateString() : 'N/A'}</Text>
-              <Text style={styles.infoText}>Next Service Date: {extinguisherInfo.next_service_date ? new Date(extinguisherInfo.next_service_date).toLocaleDateString() : 'N/A'}</Text>
-            </View>
-          </Collapsible>
+            <TouchableOpacity onPress={toggleDetailsCollapse} style={styles.collapsibleHeaderContainer}>
+              <Text style={styles.collapsibleHeader}>Extinguisher Details:</Text>
+              <Animated.View style={{ transform: [{ rotate: animatedDetailsArrow.interpolate({ inputRange: [0, 1], outputRange: ['0deg', '180deg'] }) }] }}>
+                <MaterialIcons name="keyboard-arrow-down" size={24} color="black" />
+              </Animated.View>
+            </TouchableOpacity>
+            <Collapsible collapsed={isDetailsCollapsed}>
+              <View style={styles.collapsibleContent}>
+                <Text style={styles.infoText}>Type/Capacity: {extinguisherInfo.type_capacity}</Text>
+                <Text style={styles.infoText}>Manufacture Year: {extinguisherInfo.manufacture_year}</Text>
+                <Text style={styles.infoText}>Cylinder Condition: {extinguisherInfo.cylinder_condition}</Text>
+                <Text style={styles.infoText}>Hose Condition: {extinguisherInfo.hose_condition}</Text>
+                <Text style={styles.infoText}>Stand Condition: {extinguisherInfo.stand_condition}</Text>
+                <Text style={styles.infoText}>Full Weight: {extinguisherInfo.full_weight}</Text>
+                <Text style={styles.infoText}>Actual Weight: {extinguisherInfo.actual_weight}</Text>
+                <Text style={styles.infoText}>Refilled Date: {extinguisherInfo.refilled_date ? new Date(extinguisherInfo.refilled_date).toLocaleDateString() : 'N/A'}</Text>
+                <Text style={styles.infoText}>Next Refill Date: {extinguisherInfo.next_refill_date ? new Date(extinguisherInfo.next_refill_date).toLocaleDateString() : 'N/A'}</Text>
+                <Text style={styles.infoText}>Serviced Date: {extinguisherInfo.serviced_date ? new Date(extinguisherInfo.serviced_date).toLocaleDateString() : 'N/A'}</Text>
+                <Text style={styles.infoText}>Next Service Date: {extinguisherInfo.next_service_date ? new Date(extinguisherInfo.next_service_date).toLocaleDateString() : 'N/A'}</Text>
+              </View>
+            </Collapsible>
 
-          <TouchableOpacity style={[styles.button, { marginBottom: 10 }]} onPress={() => {/* Navigate to update screen */}}>
-            <Text style={styles.buttonText}>Update Information</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={[styles.button, { marginBottom: 40 }]} onPress={() => {/* Navigate to inspection screen */}}>
-            <Text style={styles.buttonText}>Start Inspection</Text>
-          </TouchableOpacity>
-        </ScrollView>
-      )}
-
-      
-    </View>
+            
+          </ScrollView>
+        )}
+      </View>
+    </ScrollView>
   );
 }
 
@@ -481,6 +491,10 @@ const pickerSelectStyles = StyleSheet.create({
 });
 
 const styles = StyleSheet.create({
+  scrollContainer: {
+    flexGrow: 1,
+    justifyContent: 'flex-start',
+  },
   container: {
     flex: 1,
     paddingTop: 30,
