@@ -288,13 +288,22 @@ const InspectionForm: React.FC<{ extinguisherInfo: { id: string }, setAddingInsp
         body: formData,
       });
 
-      if (!response.ok) {
-        const errorData = await response.text();
-        throw new Error(`Network response was not ok: ${errorData}`);
-      }
-
+     
       const responseData = await response.json();
       console.log('Success:', responseData);
+
+      if (response.status === 400 && responseData.status === 'Approve Pending') {
+        Alert.alert('Alert', responseData.message);
+        return;
+        
+      }
+      if (!response.ok && responseData.status !== 'Approve Pending') {
+        const errorData = await response.text();
+        throw new Error(`Network response was not ok: ${errorData}`);
+        
+      }
+
+      
 
       Alert.alert('Success', 'Extinguisher updated and inspection added successfully.');
       setAddingInspection(false); // Reset the state to go back to the main inspection page
