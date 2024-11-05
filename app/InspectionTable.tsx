@@ -49,7 +49,7 @@ const InspectionTable = () => {
         token = parsedData.token; // Assuming token is stored in loginData as `token`
       }
   
-      const response = await fetch(`${config.apiUrl}/inspection/${extinguisherIdNumber}/inspections`, {
+      const response = await fetch(`${config.apiUrl}/mobile/inspection/${extinguisherIdNumber}/inspections`, {
         headers: {
           'Authorization': `Bearer ${token}`, // Add Bearer token here
           'Content-Type': 'application/json',

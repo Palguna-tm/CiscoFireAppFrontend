@@ -1,5 +1,5 @@
 const config = {
-    apiUrl: 'http://192.168.0.57:7001',
+    apiUrl: 'http://devcisco.zenapi.co.in:7000',
     // Add other configuration values or secrets here
     // For example, you might have:
     // apiKey: 'your-api-key',

@@ -88,7 +88,7 @@ export default function HomeScreen() {
         installation_year: new Date().getFullYear(),
       };
 
-      const response = await fetch(`${config.apiUrl}/extinguisher/add`, {
+      const response = await fetch(`${config.apiUrl}/mobile/extinguisher/add`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -173,7 +173,7 @@ export default function HomeScreen() {
     setCameraOpen(false);
 
     try {
-        const response = await fetch(`${config.apiUrl}/extinguisher/decrypt`, {
+        const response = await fetch(`${config.apiUrl}/mobile/extinguisher/decrypt`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',

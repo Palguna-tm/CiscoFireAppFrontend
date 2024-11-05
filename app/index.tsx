@@ -46,7 +46,7 @@ export default function LoginScreen() {
     }
 
     try {
-      const response = await fetch(`${config.apiUrl}/mobile/login`, {
+      const response = await fetch(`${config.apiUrl}/auth/login`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

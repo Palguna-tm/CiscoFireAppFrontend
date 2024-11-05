@@ -12,22 +12,21 @@ import DateTimePicker from '@react-native-community/datetimepicker';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as ImagePicker from 'expo-image-picker';
 
-// Define the navigation prop type
 type InspectionScreenNavigationProp = StackNavigationProp<
   RootStackParamList,
-  'index' // or the appropriate screen name
+  'index'
 >;
 
-// Define the props type for InspectionScreen
+
 type InspectionScreenProps = {
   navigation: InspectionScreenNavigationProp;
-  userRole?: string; // Optional prop with default value
-  userPermissions?: string[]; // Optional prop with default value
+  userRole?: string; 
+  userPermissions?: string[]; 
 };
 
 const InspectionScreen: React.FC<InspectionScreenProps> = ({ userRole = 'User', userPermissions = [] }) => {
-  const navigation = useNavigation(); // Use the hook to get the navigation object
-  const router = useRouter(); // Initialize router
+  const navigation = useNavigation(); 
+  const router = useRouter();
   const [cameraOpen, setCameraOpen] = useState(false);
   const [scanned, setScanned] = useState(false);
   const animatedValue = useRef(new Animated.Value(0)).current;
@@ -72,7 +71,7 @@ const InspectionScreen: React.FC<InspectionScreenProps> = ({ userRole = 'User', 
     setCameraOpen(false);
 
     try {
-      const response = await fetch(`${config.apiUrl}/extinguisher/decrypt`, {
+      const response = await fetch(`${config.apiUrl}/mobile/extinguisher/decrypt`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -239,12 +238,18 @@ const InspectionForm: React.FC<{ extinguisherInfo: { id: string }, setAddingInsp
 
     setIsSubmitting(true); // Disable the button
 
+    // Calculate next inspection date (3 months from current date)
+    const currentDate = new Date();
+    const nextInspectionDate = new Date(currentDate);
+    nextInspectionDate.setMonth(currentDate.getMonth() + 3);
+    const formattedNextInspectionDate = nextInspectionDate.toISOString().split('T')[0];
+
     const formData = new FormData();
     formData.append('extinguisherId', extinguisherInfo.id);
     formData.append('inspectionDate', new Date().toISOString().split('T')[0]);
     formData.append('notes', notes);
     formData.append('status', status);
-    formData.append('next_inspection_date', '2024-01-01');
+    formData.append('next_inspection_date', formattedNextInspectionDate);
     formData.append('photo', {
       uri: image,
       name: 'photo.jpg',
@@ -274,7 +279,7 @@ const InspectionForm: React.FC<{ extinguisherInfo: { id: string }, setAddingInsp
         token = parsedData.token;
       }
 
-      const response = await fetch(`${config.apiUrl}/inspection/update-and-add-inspection`, {
+      const response = await fetch(`${config.apiUrl}/mobile/inspection/update-and-add-inspection`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
