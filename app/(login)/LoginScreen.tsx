@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { StyleSheet, View, TextInput, TouchableOpacity, Text, Alert } from 'react-native';
+import { StyleSheet, View, TextInput, TouchableOpacity, Text, Alert, Image } from 'react-native';
 import Animated, { useSharedValue, useAnimatedStyle, withSpring } from 'react-native-reanimated';
 import { useRouter } from 'expo-router';
 import Icon from 'react-native-vector-icons/MaterialIcons';
@@ -46,7 +46,7 @@ export default function LoginScreen() {
     }
 
     try {
-      const response = await fetch(`${config.apiUrl}/mobile/login`, {
+      const response = await fetch(`${config.apiUrl}/auth/login`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -72,6 +72,11 @@ export default function LoginScreen() {
   return (
     <LinearGradient colors={['#4c669f', '#3b5998', '#192f6a']} style={styles.background}>
       <View style={styles.container}>
+        <View style={styles.logoContainer}>
+          <Image source={require('../../assets/images/logo-exo.png')} style={styles.logo} />
+          <Image source={require('../../assets/images/logo.png')} style={styles.logo} />
+          <Image source={require('../../assets/images/cisco_logo.webp')} style={styles.logo} />
+        </View>
         <View style={styles.header}>
           <Text style={styles.greeting}>Welcome Back.</Text>
           <Text style={styles.title}>Log In!</Text>
@@ -128,6 +133,20 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     padding: 20,
+  },
+  logoContainer: {
+    flexDirection: 'row',
+    backgroundColor: '#fff',
+    padding: 0,
+    paddingHorizontal: 10,
+    borderRadius: 10,
+    marginBottom: 20,
+  },
+  logo: {
+    width: 60,
+    height: 40,
+    resizeMode: 'contain',
+    marginRight: 10,
   },
   header: {
     width: '100%',

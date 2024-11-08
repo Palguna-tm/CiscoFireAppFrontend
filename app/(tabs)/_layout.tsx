@@ -20,6 +20,14 @@ export default function TabLayout() {
   const [userRole, setUserRole] = useState<string | null>(null);
   const [userPermissions, setUserPermissions] = useState<string[]>([]);
 
+  const logoOpacity = useSharedValue(0);
+  const [currentLogo, setCurrentLogo] = useState(0);
+  const logos = [
+    require('../../assets/images/logo-exo.png'),
+    require('../../assets/images/logo.png'),
+    require('../../assets/images/cisco_logo.webp'),
+  ];
+
   const fetchUserData = async () => {
     const userData = await AsyncStorage.getItem('loginData');
     if (userData) {
@@ -33,6 +41,25 @@ export default function TabLayout() {
   useEffect(() => {
     fetchUserData();
   }, []);
+
+  useEffect(() => {
+    const animateLogos = async () => {
+      while (true) {
+        logoOpacity.value = withSpring(1);
+        await new Promise(resolve => setTimeout(resolve, 15000)); // Display for 15 seconds
+        logoOpacity.value = withSpring(0);
+        await new Promise(resolve => setTimeout(resolve, 500)); // Wait for fade out
+
+        setCurrentLogo((prevLogo) => (prevLogo + 1) % logos.length);
+      }
+    };
+
+    animateLogos();
+  }, []);
+
+  const animatedLogoStyle = useAnimatedStyle(() => ({
+    opacity: logoOpacity.value,
+  }));
 
   const handleLogout = async () => {
     try {
@@ -59,6 +86,7 @@ export default function TabLayout() {
   };
 
   return (
+    
     <Tabs
       screenOptions={{
         tabBarActiveTintColor: Colors[colorScheme ?? 'light'].tint,
@@ -68,11 +96,12 @@ export default function TabLayout() {
         tabBarLabelStyle: { color: 'white' },
         headerTitle: () => (
           <View style={styles.logoContainer}>
-            <Image
-              source={require('../../assets/images/logo-exo.png')}
-              style={styles.logo}
+            <Animated.Image
+              source={logos[currentLogo]}
+              style={[styles.logo, animatedLogoStyle]}
             />
           </View>
+          
         ),
         headerRight: () => (
           <View style={styles.headerIcons}>
@@ -137,10 +166,9 @@ export default function TabLayout() {
 
 const styles = StyleSheet.create({
   logoContainer: {
-    backgroundColor: '#fff',
-    padding: 0,
-    paddingHorizontal: 10,
-    borderRadius: 10,
+    justifyContent: 'center',
+    alignItems: 'center',
+    height: 80, // Adjust as needed
   },
   logo: {
     width: 60,

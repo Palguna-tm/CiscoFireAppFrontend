@@ -9,7 +9,7 @@
     "userInterfaceStyle": "automatic",
     "splash": {
       "image": "./assets/images/icon.png",
-      "resizeMode": "contian",
+      "resizeMode": "contain",
       "backgroundColor": "#000000"
     },
     "ios": {
@@ -19,7 +19,8 @@
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/icon.png",
         "backgroundColor": "#ffffff"
-      }
+      },
+      "package": "com.palgunatm.FireExtingusherManagementApp2"
     },
     "web": {
       "bundler": "metro",
@@ -31,6 +32,14 @@
     ],
     "experiments": {
       "typedRoutes": true
+    },
+    "extra": {
+      "router": {
+        "origin": false
+      },
+      "eas": {
+        "projectId": "7549ebc9-1c9c-44f5-ac2c-6b37869f9adc"
+      }
     }
   }
 }

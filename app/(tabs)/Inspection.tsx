@@ -6,8 +6,7 @@ import config from '../config';
 import { useNavigation } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { RootStackParamList } from '../navigation/types'; // Adjust the path as necessary
-import InspectionTable from '../InspectionTable';
-import { router, useRouter } from 'expo-router'; // Import useRouter
+import {  useRouter } from 'expo-router'; // Import useRouter
 import DateTimePicker from '@react-native-community/datetimepicker';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as ImagePicker from 'expo-image-picker';
@@ -26,7 +25,7 @@ type InspectionScreenProps = {
 };
 
 const InspectionScreen: React.FC<InspectionScreenProps> = ({ userRole = 'User', userPermissions = [] }) => {
-  const navigation = useNavigation(); // Use the hook to get the navigation object
+  
   const router = useRouter(); // Initialize router
   const [cameraOpen, setCameraOpen] = useState(false);
   const [scanned, setScanned] = useState(false);
@@ -72,7 +71,7 @@ const InspectionScreen: React.FC<InspectionScreenProps> = ({ userRole = 'User', 
     setCameraOpen(false);
 
     try {
-      const response = await fetch(`${config.apiUrl}/extinguisher/decrypt`, {
+      const response = await fetch(`${config.apiUrl}/mobile/extinguisher/decrypt`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -111,7 +110,7 @@ const InspectionScreen: React.FC<InspectionScreenProps> = ({ userRole = 'User', 
           onPress={() => {
             if (extinguisherInfo && extinguisherInfo.id) {
               console.log('Extinguisher ID:', extinguisherInfo.id);
-              router.push({ pathname: '/InspectionTable', params: { extinguisherid: extinguisherInfo.id } });
+              router.push({ pathname: '/InspectionDetails', params: { extinguisherid: extinguisherInfo.id } });
             } else {
               Alert.alert('Error', 'Extinguisher information is not available.');
             }
@@ -232,8 +231,15 @@ const InspectionForm: React.FC<{ extinguisherInfo: { id: string }, setAddingInsp
   const [isSubmitting, setIsSubmitting] = useState(false); // New state to track submission status
 
   const handleSubmit = async () => {
-    if (!notes || !status || !image) {
-      Alert.alert('Validation Error', 'All fields and image upload are mandatory.');
+    // Validate all fields
+    if (!cylinderCondition || !hoseCondition || !standCondition || !fullWeight || !actualWeight || !notes || !status || !image) {
+      Alert.alert('Validation Error', 'All fields are mandatory.');
+      return;
+    }
+
+    // Validate numeric fields
+    if (isNaN(Number(fullWeight)) || isNaN(Number(actualWeight))) {
+      Alert.alert('Validation Error', 'Full Weight and Actual Weight must be numeric.');
       return;
     }
 
@@ -244,7 +250,9 @@ const InspectionForm: React.FC<{ extinguisherInfo: { id: string }, setAddingInsp
     formData.append('inspectionDate', new Date().toISOString().split('T')[0]);
     formData.append('notes', notes);
     formData.append('status', status);
-    formData.append('next_inspection_date', '2024-01-01');
+    const currentDate = new Date();
+    const nextInspectionDate = new Date(currentDate.setMonth(currentDate.getMonth() + 3)).toISOString().split('T')[0];
+    formData.append('next_inspection_date', nextInspectionDate);
     formData.append('photo', {
       uri: image,
       name: 'photo.jpg',
@@ -274,7 +282,7 @@ const InspectionForm: React.FC<{ extinguisherInfo: { id: string }, setAddingInsp
         token = parsedData.token;
       }
 
-      const response = await fetch(`${config.apiUrl}/inspection/update-and-add-inspection`, {
+      const response = await fetch(`${config.apiUrl}/mobile/inspection/update-and-add-inspection`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -319,8 +327,8 @@ const InspectionForm: React.FC<{ extinguisherInfo: { id: string }, setAddingInsp
 
     const result = await ImagePicker.launchCameraAsync({
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      allowsEditing: true,
-      quality: 1,
+      allowsEditing: false, // Disable cropping
+      quality: 0.7, // Adjust quality to reduce size without significant degradation
     });
 
     if (!result.canceled) {
@@ -382,12 +390,14 @@ const InspectionForm: React.FC<{ extinguisherInfo: { id: string }, setAddingInsp
           value={fullWeight}
           onChangeText={setFullWeight}
           style={styles.input}
+          keyboardType="numeric" // Set keyboard type to numeric
         />
         <TextInput
           placeholder="Actual Weight"
           value={actualWeight}
           onChangeText={setActualWeight}
           style={styles.input}
+          keyboardType="numeric" // Set keyboard type to numeric
         />
         <TouchableOpacity onPress={() => setShowRefilledDatePicker(true)} style={styles.datePicker}>
           <Text style={styles.dateText}>
