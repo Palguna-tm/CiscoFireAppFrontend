@@ -6,14 +6,16 @@ import config from '../config';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Location from 'expo-location';
 
-import Collapsible from 'react-native-collapsible';
-import { Picker } from '@react-native-picker/picker';
+
 import { Country, State, City } from 'country-state-city';
 import { LinearGradient } from 'expo-linear-gradient';
+import { useRouter } from 'expo-router';
 
 
 
 export default function HomeScreen() {
+  const router = useRouter();
+
   const [hasPermission, setHasPermission] = useState<boolean | null>(null);
   const [scanned, setScanned] = useState(false);
   
@@ -49,18 +51,13 @@ export default function HomeScreen() {
   const [selectedState, setSelectedState] = useState<string | null>(null);
   const [selectedCity, setSelectedCity] = useState<string | null>(null);
 
-  const [isModalVisible, setIsModalVisible] = useState(false);
-
   const [googleMapsUrl, setGoogleMapsUrl] = useState<string | null>(null);
 
   const [activeTab, setActiveTab] = useState('location');
 
   const toggleModal = () => {
-    setIsModalVisible(!isModalVisible);
-    if (isModalVisible) {
-      // Clear form data when closing the modal
-      setFormData(defaultFormData);
-    }
+    // Clear form data when closing the modal
+    setFormData(defaultFormData);
   };
 
   useEffect(() => {
@@ -72,7 +69,11 @@ export default function HomeScreen() {
       }
 
       try {
-        let location = await Location.getCurrentPositionAsync({});
+        let location = await Location.getCurrentPositionAsync({
+          accuracy: Location.Accuracy.Highest,
+          distanceInterval: 1,
+          timeInterval: 1000,
+        });
         console.log('Retrieved location:', location);
         setFormData((prevData) => ({
           ...prevData,
@@ -177,8 +178,7 @@ export default function HomeScreen() {
         Alert.alert('Success', 'Extinguisher added successfully');
         
         // Clear form data and close the modal
-        setFormData(defaultFormData);
-        setIsModalVisible(false);
+        
       }
     } catch (error) {
       console.error('Error:', error);
@@ -429,10 +429,9 @@ export default function HomeScreen() {
     overflow: 'hidden' as 'hidden',
   };
 
-  const handleBackButtonPress = () => {
-    // Clear form data and close the modal
-    setFormData(defaultFormData);
-    setIsModalVisible(false);
+  // Function to open the Add Extinguisher Modal
+  const openAddExtinguisherModal = () => {
+    router.push('/modal/add-extinguisher');
   };
 
   return (
@@ -449,114 +448,11 @@ export default function HomeScreen() {
           </Text>
         </LinearGradient>
 
-        {userRole === 'Admin' && (
-          <TouchableOpacity style={styles.addButton} onPress={toggleModal}>
+        {userRole === 'admin' && (
+          <TouchableOpacity style={styles.addButton} onPress={openAddExtinguisherModal}>
             <Text style={styles.buttonText}>Add Extinguisher</Text>
           </TouchableOpacity>
         )}
-
-        {/* Modal for adding extinguisher */}
-        <Modal
-          visible={isModalVisible}
-          transparent={true}
-          animationType="slide"
-          onRequestClose={toggleModal}
-        >
-          <View style={styles.modalContainer}>
-            <View style={styles.modalContent}>
-              <ScrollView contentContainerStyle={styles.modalScrollContent}>
-                <Text style={styles.modalTitle}>Add Extinguisher</Text>
-                {/* Form fields for extinguisher details */}
-                <TextInput
-                  style={styles.input}
-                  placeholder="Location"
-                  value={formData.location}
-                  onChangeText={(text) => handleInputChange('location', text)}
-                />
-                <TextInput
-                  style={styles.input}
-                  placeholder="Block"
-                  value={formData.block}
-                  onChangeText={(text) => handleInputChange('block', text)}
-                />
-                <TextInput
-                  style={styles.input}
-                  placeholder="Area"
-                  value={formData.area}
-                  onChangeText={(text) => handleInputChange('area', text)}
-                />
-                <TextInput
-                  style={styles.input}
-                  placeholder="Type/Capacity"
-                  value={formData.type_capacity}
-                  onChangeText={(text) => handleInputChange('type_capacity', text)}
-                />
-                <Picker
-                  selectedValue={formData.manufacture_year}
-                  onValueChange={(itemValue) => handleInputChange('manufacture_year', itemValue)}
-                  style={styles.pickerContainer}
-                >
-                  <Picker.Item label="Select Manufacture Year" value="" />
-                  {yearOptions.map((option) => (
-                    <Picker.Item key={option.value} label={option.label} value={option.value} />
-                  ))}
-                </Picker>
-                <TextInput
-                  style={styles.input}
-                  placeholder="Floor"
-                  value={formData.floor}
-                  onChangeText={(text) => handleInputChange('floor', text)}
-                />
-                <Picker
-                  selectedValue={formData.country}
-                  onValueChange={(itemValue) => handleCountryChange(itemValue)}
-                  style={styles.pickerContainer}
-                >
-                  <Picker.Item label="Select Country" value="" />
-                  {countries.map((country) => (
-                    <Picker.Item key={country.isoCode} label={country.name} value={country.isoCode} />
-                  ))}
-                </Picker>
-                <Picker
-                  selectedValue={formData.state}
-                  onValueChange={(itemValue) => handleStateChange(itemValue)}
-                  style={styles.pickerContainer}
-                >
-                  <Picker.Item label="Select State" value="" />
-                  {states.map((state) => (
-                    <Picker.Item key={state.isoCode} label={state.name} value={state.isoCode} />
-                  ))}
-                </Picker>
-                <Picker
-                  selectedValue={formData.city}
-                  onValueChange={(itemValue) => handleCityChange(itemValue)}
-                  style={styles.pickerContainer}
-                >
-                  <Picker.Item label="Select City" value="" />
-                  {cities.map((city) => (
-                    <Picker.Item key={city.name} label={city.name} value={city.name} />
-                  ))}
-                </Picker>
-                <Picker
-                  selectedValue={formData.installation_year}
-                  onValueChange={(itemValue) => handleInputChange('installation_year', itemValue)}
-                  style={styles.pickerContainer}
-                >
-                  <Picker.Item label="Select Installation Year" value="" />
-                  {yearOptions.map((option) => (
-                    <Picker.Item key={option.value} label={option.label} value={option.value} />
-                  ))}
-                </Picker>
-                <TouchableOpacity style={styles.updateButton} onPress={handleSubmit}>
-                  <Text style={styles.buttonText}>Submit</Text>
-                </TouchableOpacity>
-                <TouchableOpacity style={styles.cancelButton} onPress={toggleModal}>
-                  <Text style={styles.buttonText}>Cancel</Text>
-                </TouchableOpacity>
-              </ScrollView>
-            </View>
-          </View>
-        </Modal>
 
         <TouchableOpacity
           style={styles.qrTab}

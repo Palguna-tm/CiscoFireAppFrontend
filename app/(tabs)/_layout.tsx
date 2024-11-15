@@ -1,92 +1,73 @@
+import React, { useContext, useEffect, useRef, useState } from 'react';
 import { Tabs } from 'expo-router';
-import React, { useState, useEffect } from 'react';
-import { Image, View, StyleSheet, TouchableOpacity, Text } from 'react-native';
-import { useSharedValue, useAnimatedStyle, withSpring } from 'react-native-reanimated';
-import Animated from 'react-native-reanimated';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { View, StyleSheet, TouchableOpacity, Image, Animated as RNAnimated, Alert } from 'react-native';
+import { AuthContext } from '../contexts/AuthContext';
 import Icon from 'react-native-vector-icons/MaterialIcons';
-import { useRouter } from 'expo-router';
 import { TabBarIcon } from '@/components/navigation/TabBarIcon';
 import { Colors } from '@/constants/Colors';
 import { useColorScheme } from '@/hooks/useColorScheme';
-import { Stack } from 'expo-router';
+import { useRouter } from 'expo-router';
+
+const logos = [
+  require('../../assets/images/logo-exo.png'),
+  require('../../assets/images/logo.png'),
+  require('../../assets/images/cisco_logo.webp'),
+];
+
+const AnimatedLogo = () => {
+  const [currentLogoIndex, setCurrentLogoIndex] = useState(0);
+  const fadeAnim = useRef(new RNAnimated.Value(1)).current;
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      RNAnimated.timing(fadeAnim, {
+        toValue: 0,
+        duration: 1000,
+        useNativeDriver: true,
+      }).start(() => {
+        setCurrentLogoIndex((prevIndex) => (prevIndex + 1) % logos.length);
+        RNAnimated.timing(fadeAnim, {
+          toValue: 1,
+          duration: 1000,
+          useNativeDriver: true,
+        }).start();
+      });
+    }, 5000);
+
+    return () => clearInterval(interval);
+  }, [fadeAnim]);
+
+  return (
+    <View style={styles.logoContainer}>
+      <RNAnimated.Image
+        source={logos[currentLogoIndex]}
+        style={[styles.logo, { opacity: fadeAnim }]}
+        resizeMode="contain"
+      />
+    </View>
+  );
+};
 
 export default function TabLayout() {
   const colorScheme = useColorScheme();
-  const iconScale = useSharedValue(1);
+  const { user, logout } = useContext(AuthContext);
   const router = useRouter();
-  const [notificationCount, setNotificationCount] = useState(0);
-  const [projectID, setProjectID] = useState<number | null>(null);
-  const [userRole, setUserRole] = useState<string | null>(null);
-  const [userPermissions, setUserPermissions] = useState<string[]>([]);
-
-  const logoOpacity = useSharedValue(0);
-  const [currentLogo, setCurrentLogo] = useState(0);
-  const logos = [
-    require('../../assets/images/logo-exo.png'),
-    require('../../assets/images/logo.png'),
-    require('../../assets/images/cisco_logo.webp'),
-  ];
-
-  const fetchUserData = async () => {
-    const userData = await AsyncStorage.getItem('loginData');
-    if (userData) {
-      const { user } = JSON.parse(userData);
-      setUserRole(user.role);
-      setUserPermissions(user.permissions);
-      setProjectID(user.project_id);
-    }
-  };
-
-  useEffect(() => {
-    fetchUserData();
-  }, []);
-
-  useEffect(() => {
-    const animateLogos = async () => {
-      while (true) {
-        logoOpacity.value = withSpring(1);
-        await new Promise(resolve => setTimeout(resolve, 15000)); // Display for 15 seconds
-        logoOpacity.value = withSpring(0);
-        await new Promise(resolve => setTimeout(resolve, 500)); // Wait for fade out
-
-        setCurrentLogo((prevLogo) => (prevLogo + 1) % logos.length);
-      }
-    };
-
-    animateLogos();
-  }, []);
-
-  const animatedLogoStyle = useAnimatedStyle(() => ({
-    opacity: logoOpacity.value,
-  }));
-
-  const handleLogout = async () => {
-    try {
-      console.log("Attempting to log out...");
-      await AsyncStorage.removeItem('loginData');
-      console.log("User data removed, redirecting to login page...");
-      router.replace('/LoginScreen');
-    } catch (error) {
-      console.error("Logout failed:", error);
-    }
-  };
-
-  const animatedStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: iconScale.value }],
-  }));
 
   const handlePressIn = () => {
-    iconScale.value = withSpring(0.9);
+    // Optional: Add any press-in animations or effects here
   };
 
-  const handlePressOut = () => {
-    iconScale.value = withSpring(1);
-    router.push('/');
+  const handlePressOut = async () => {
+    try {
+      await logout();
+      router.replace('/login' ); // Redirect to LoginScreen after logout
+    } catch (error) {
+      console.error('Logout failed:', error);
+      Alert.alert('Error', 'Failed to logout. Please try again.');
+    }
   };
 
   return (
-    
     <Tabs
       screenOptions={{
         tabBarActiveTintColor: Colors[colorScheme ?? 'light'].tint,
@@ -94,49 +75,37 @@ export default function TabLayout() {
         headerStyle: { backgroundColor: '#3577f1' },
         headerShown: true,
         tabBarLabelStyle: { color: 'white' },
-        headerTitle: () => (
-          <View style={styles.logoContainer}>
-            <Animated.Image
-              source={logos[currentLogo]}
-              style={[styles.logo, animatedLogoStyle]}
-            />
-          </View>
-          
-        ),
+        headerTitle: () => <AnimatedLogo />,
         headerRight: () => (
-          <View style={styles.headerIcons}>
+          <View style={styles.headerIcons} >
             <TouchableOpacity
               onPressIn={handlePressIn}
               onPressOut={handlePressOut}
-              style={styles.notificationIcon}>
-              <Animated.View style={animatedStyle}>
-                <TabBarIcon name="notifications" color="white" />
-                {notificationCount > 0 && (
-                  <View style={styles.badge}>
-                    <Text style={styles.badgeText}>{notificationCount}</Text>
-                  </View>
-                )}
-              </Animated.View>
-            </TouchableOpacity>
-            <TouchableOpacity onPress={handleLogout} style={styles.logoutIcon}>
-              <View style={styles.logoutButton}>
-                <Icon name="power-settings-new" size={24} color="white" />
-              </View>
+              style={styles.logoutIcon}
+            >
+              <Icon name="power-settings-new" size={24} color="white"  />
             </TouchableOpacity>
           </View>
         ),
-      }}>
-
+      }}
+    >
       <Tabs.Screen
         name="Inspection"
+        redirect={user?.role === 'replacer'}
         options={{
-          title: 'Inspection',
+          title: 'Inspections',
           tabBarIcon: ({ focused }) => (
-            <Icon
-              name="search"
-              size={24}
-              color={focused ? 'white' : 'white'}
-            />
+            <Icon name="search" size={24} color={focused ? 'white' : 'white'} />
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="replacement"
+        redirect={user?.role === 'inspector' || user?.role === 'admin'}
+        options={{
+          title: 'Replacement',
+          tabBarIcon: ({ focused }) => (
+            <TabBarIcon name="refresh" color={focused ? 'white' : 'white'} />
           ),
         }}
       />
@@ -146,37 +115,44 @@ export default function TabLayout() {
         options={{
           title: 'Home',
           tabBarIcon: ({ focused }) => (
-            <TabBarIcon name={focused ? 'home' : 'home-outline'} color="white" />
+            <TabBarIcon name="home" color={focused ? 'white' : 'white'} />
           ),
         }}
       />
-      <Tabs.Screen
-        name="User"
-        options={{
-          title: 'User',
-          tabBarIcon: ({ focused }) => (
-            <TabBarIcon name={focused ? 'person' : 'person-outline'} color="white" />
-          ),
-        }}
-      />
-       
+      
+      {/* Tabs Exclusive to Admins */}
+      
+        <Tabs.Screen
+          
+          name="User"
+          options={{
+            title: 'Profile',
+            tabBarIcon: ({ focused }) => (
+              <TabBarIcon name="person" color={focused ? 'white' : 'white'} />
+            ),
+          }}
+        />
+      
+     
+      {/* Add more role-based tabs as needed */}
     </Tabs>
   );
 }
 
 const styles = StyleSheet.create({
   logoContainer: {
+    width: 80,
+    height: 40,
+    backgroundColor: '#ffffff',
     justifyContent: 'center',
     alignItems: 'center',
-    height: 80, // Adjust as needed
+    borderRadius: 8,
+    overflow: 'hidden',
+    paddingHorizontal: 10,
   },
   logo: {
-    width: 60,
-    height: 40,
-    resizeMode: 'contain',
-  },
-  notificationIcon: {
-    marginRight: 15,
+    width: '100%',
+    height: '100%',
   },
   headerIcons: {
     flexDirection: 'row',
@@ -185,28 +161,5 @@ const styles = StyleSheet.create({
   logoutIcon: {
     marginLeft: 15,
     marginRight: 15,
-  },
-  badge: {
-    position: 'absolute',
-    right: -6,
-    top: -3,
-    backgroundColor: 'red',
-    borderRadius: 6,
-    width: 12,
-    height: 12,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  badgeText: {
-    color: 'white',
-    fontSize: 8,
-    fontWeight: 'bold',
-  },
-  logoutButton: {
-    backgroundColor: 'red',
-    borderRadius: 20,
-    padding: 5,
-    justifyContent: 'center',
-    alignItems: 'center',
   },
 });

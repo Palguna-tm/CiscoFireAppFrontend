@@ -1,16 +1,17 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useContext } from 'react';
 import { StyleSheet, View, TextInput, TouchableOpacity, Text, Alert, Image } from 'react-native';
 import Animated, { useSharedValue, useAnimatedStyle, withSpring } from 'react-native-reanimated';
 import { useRouter } from 'expo-router';
 import Icon from 'react-native-vector-icons/MaterialIcons';
+import { AuthContext } from './contexts/AuthContext';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
-import config from '../config';
-
+import config from './config';
 
 export default function LoginScreen() {
   const router = useRouter();
+  const { login } = useContext(AuthContext);
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [isPasswordVisible, setIsPasswordVisible] = useState(false);
@@ -33,7 +34,11 @@ export default function LoginScreen() {
     const checkLogin = async () => {
       const storedData = await AsyncStorage.getItem('loginData');
       if (storedData) {
-        router.push('/(tabs)');
+        const parsedData = JSON.parse(storedData);
+        if (parsedData.token && parsedData.user) {
+          login(parsedData.user, parsedData.token);
+          router.push('/(tabs)');
+        }
       }
     };
     checkLogin();
@@ -55,17 +60,23 @@ export default function LoginScreen() {
       });
 
       if (!response.ok) {
-        throw new Error('Login failed');
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Login failed');
       }
 
       const data = await response.json();
-      await AsyncStorage.setItem('loginData', JSON.stringify(data));
-      Alert.alert('Login Successful', 'Welcome back!');
-      setTimeout(() => {
-        router.push('/(tabs)'); // Navigate only if login is successful
-      }, 1000);
-    } catch (error) {
-      Alert.alert('Login Failed', 'An error occurred.');
+      
+      if (data.token && data.user) {
+        login(data.user, data.token);
+        Alert.alert('Login Successful', 'Welcome back!');
+        setTimeout(() => {
+          router.push('/(tabs)');
+        }, 1000);
+      } else {
+        throw new Error('Invalid response from server');
+      }
+    } catch (error: any) {
+      Alert.alert('Login Failed', error.message || 'An error occurred.');
     }
   };
 
@@ -73,9 +84,9 @@ export default function LoginScreen() {
     <LinearGradient colors={['#4c669f', '#3b5998', '#192f6a']} style={styles.background}>
       <View style={styles.container}>
         <View style={styles.logoContainer}>
-          <Image source={require('../../assets/images/logo-exo.png')} style={styles.logo} />
-          <Image source={require('../../assets/images/logo.png')} style={styles.logo} />
-          <Image source={require('../../assets/images/cisco_logo.webp')} style={styles.logo} />
+          <Image source={require('../assets/images/logo-exo.png')} style={styles.logo} />
+          <Image source={require('../assets/images/logo.png')} style={styles.logo} />
+          <Image source={require('../assets/images/cisco_logo.webp')} style={styles.logo} />
         </View>
         <View style={styles.header}>
           <Text style={styles.greeting}>Welcome Back.</Text>
@@ -193,20 +204,15 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
   forgotPassword: {
-    color: '#fff',
+    color: '#3577f1',
   },
   button: {
-    borderRadius: 25,
-    paddingVertical: 15,
-    paddingHorizontal: 30,
-    width: '100%',
-    alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.3,
-    shadowRadius: 3,
-    elevation: 5,
     backgroundColor: '#3577f1',
+    paddingVertical: 15,
+    paddingHorizontal: 40,
+    borderRadius: 25,
+    alignItems: 'center',
+    width: '100%',
   },
   buttonText: {
     color: '#fff',
