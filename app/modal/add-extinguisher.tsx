@@ -1,5 +1,5 @@
 import React, { useReducer, useState, useEffect } from 'react';
-import { StyleSheet, View } from 'react-native';
+import { StyleSheet, View, Text } from 'react-native';
 import { useRouter } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import config from '../config';
@@ -64,9 +64,9 @@ const formReducer = (state: FormState, action: Action): FormState => {
 export default function AddExtinguisherModal() {
   const router = useRouter();
   const [formData, dispatch] = useReducer(formReducer, initialFormState);
-  const [selectedCountry, setSelectedCountry] = useState<string | null>(null);
-  const [selectedState, setSelectedState] = useState<string | null>(null);
-  const [selectedCity, setSelectedCity] = useState<string | null>(null);
+  const [selectedCountry, setSelectedCountry] = useState<string>('');
+  const [selectedState, setSelectedState] = useState<string>('');
+  const [selectedCity, setSelectedCity] = useState<string>('');
   const [visible, setVisible] = useState(false);
   const [snackbarMessage, setSnackbarMessage] = useState('');
 
@@ -97,15 +97,15 @@ export default function AddExtinguisherModal() {
     handleInputChange('country', value);
     handleInputChange('state', '');
     handleInputChange('city', '');
-    setSelectedState(null);
-    setSelectedCity(null);
+    setSelectedState('');
+    setSelectedCity('');
   };
 
   const handleStateChange = (value: string) => {
     setSelectedState(value);
     handleInputChange('state', value);
     handleInputChange('city', '');
-    setSelectedCity(null);
+    setSelectedCity('');
   };
 
   const handleCityChange = (value: string) => {
@@ -193,9 +193,9 @@ export default function AddExtinguisherModal() {
         setSnackbarMessage('Extinguisher added successfully');
         setVisible(true);
         dispatch({ type: 'RESET' });
-        setSelectedCountry(null);
-        setSelectedState(null);
-        setSelectedCity(null);
+        setSelectedCountry('');
+        setSelectedState('');
+        setSelectedCity('');
         setTimeout(() => {
           router.back();
         }, 1500);
@@ -234,143 +234,176 @@ export default function AddExtinguisherModal() {
         extraScrollHeight={20}
         keyboardShouldPersistTaps="handled"
       >
-        <Title style={styles.modalTitle}>Add Extinguisher</Title>
-        
-        <TextInput
-          label="Location"
-          mode="outlined"
-          value={formData.location}
-          onChangeText={(text) => handleInputChange('location', text)}
-          style={styles.input}
-          left={<TextInput.Icon icon="map-marker-outline" />}
-        />
-        
-        <TextInput
-          label="Block"
-          mode="outlined"
-          value={formData.block}
-          onChangeText={(text) => handleInputChange('block', text)}
-          style={styles.input}
-          left={<TextInput.Icon icon="office-building" />}
-        />
-        
-        <TextInput
-          label="Area"
-          mode="outlined"
-          value={formData.area}
-          onChangeText={(text) => handleInputChange('area', text)}
-          style={styles.input}
-          left={<TextInput.Icon icon="square-outline" />}
-        />
-        
-        <TextInput
-          label="Type/Capacity"
-          mode="outlined"
-          value={formData.type_capacity}
-          onChangeText={(text) => handleInputChange('type_capacity', text)}
-          style={styles.input}
-          left={<TextInput.Icon icon="fire" />}
-        />
-        
-        <TextInput
-          label="Floor"
-          mode="outlined"
-          value={formData.floor}
-          onChangeText={(text) => handleInputChange('floor', text)}
-          style={styles.input}
-          left={<TextInput.Icon icon="stairs" />}
-        />
+        <View style={styles.card}>
+          <Title style={styles.modalTitle}>Add Extinguisher</Title>
+          
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Location Details</Text>
+            <TextInput
+              label="Location"
+              mode="outlined"
+              value={formData.location}
+              onChangeText={(text) => handleInputChange('location', text)}
+              style={styles.input}
+              left={<TextInput.Icon icon="map-marker-outline" />}
+              outlineStyle={styles.inputOutline}
+              theme={{ colors: { primary: '#2563eb' } }}
+            />
+            
+            <View style={styles.row}>
+              <TextInput
+                label="Block"
+                mode="outlined"
+                value={formData.block}
+                onChangeText={(text) => handleInputChange('block', text)}
+                style={[styles.input, styles.halfInput]}
+                left={<TextInput.Icon icon="office-building" />}
+                outlineStyle={styles.inputOutline}
+                theme={{ colors: { primary: '#2563eb' } }}
+              />
+              
+              <TextInput
+                label="Floor"
+                mode="outlined"
+                value={formData.floor}
+                onChangeText={(text) => handleInputChange('floor', text)}
+                style={[styles.input, styles.halfInput]}
+                left={<TextInput.Icon icon="stairs" />}
+                outlineStyle={styles.inputOutline}
+                theme={{ colors: { primary: '#2563eb' } }}
+              />
+            </View>
 
-        {/* Manufacture Year Dropdown */}
-        <DropdownPicker
-          label="Manufacture Year"
-          items={yearOptions}
-          value={formData.manufacture_year}
-          onChangeValue={(value) => handleInputChange('manufacture_year', value)}
-          placeholder="Select Manufacture Year"
-          open={openDropdowns.manufactureYear}
-          setOpen={() => setOpenDropdowns(prev => ({ ...prev, manufactureYear: !prev.manufactureYear }))}
-          zIndex={5000}
-        />
+            <TextInput
+              label="Area"
+              mode="outlined"
+              value={formData.area}
+              onChangeText={(text) => handleInputChange('area', text)}
+              style={styles.input}
+              left={<TextInput.Icon icon="square-outline" />}
+              outlineStyle={styles.inputOutline}
+              theme={{ colors: { primary: '#2563eb' } }}
+            />
+          </View>
 
-        {/* Installation Year Dropdown */}
-        <DropdownPicker
-          label="Installation Year"
-          items={yearOptions}
-          value={formData.installation_year}
-          onChangeValue={(value) => handleInputChange('installation_year', value)}
-          placeholder="Select Installation Year"
-          open={openDropdowns.installationYear}
-          setOpen={() => setOpenDropdowns(prev => ({ ...prev, installationYear: !prev.installationYear }))}
-          zIndex={4000}
-        />
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Extinguisher Details</Text>
+            <TextInput
+              label="Type/Capacity"
+              mode="outlined"
+              value={formData.type_capacity}
+              onChangeText={(text) => handleInputChange('type_capacity', text)}
+              style={styles.input}
+              left={<TextInput.Icon icon="fire" />}
+              outlineStyle={styles.inputOutline}
+              theme={{ colors: { primary: '#2563eb' } }}
+            />
 
-        {/* Country Dropdown */}
-        <DropdownPicker
-          label="Country"
-          items={countries.map(country => ({
-            label: country.name,
-            value: country.isoCode,
-          }))}
-          value={formData.country}
-          onChangeValue={handleCountryChange}
-          placeholder="Select Country"
-          searchable={true}
-          open={openDropdowns.country}
-          setOpen={() => setOpenDropdowns(prev => ({ ...prev, country: !prev.country }))}
-          zIndex={3000}
-        />
+            <View style={styles.row}>
+              <View style={styles.halfInput}>
+                <DropdownPicker
+                  label="Manufacture Year"
+                  items={yearOptions}
+                  value={formData.manufacture_year}
+                  onChangeValue={(value) => handleInputChange('manufacture_year', value)}
+                  placeholder="Manufacture Year"
+                  open={openDropdowns.manufactureYear}
+                  setOpen={() => setOpenDropdowns(prev => ({ ...prev, manufactureYear: !prev.manufactureYear }))}
+                  zIndex={5000}
+                />
+              </View>
+              <View style={styles.halfInput}>
+                <DropdownPicker
+                  label="Installation Year"
+                  items={yearOptions}
+                  value={formData.installation_year}
+                  onChangeValue={(value) => handleInputChange('installation_year', value)}
+                  placeholder="Installation Year"
+                  open={openDropdowns.installationYear}
+                  setOpen={() => setOpenDropdowns(prev => ({ ...prev, installationYear: !prev.installationYear }))}
+                  zIndex={4000}
+                />
+              </View>
+            </View>
+          </View>
 
-        {/* State Dropdown */}
-        <DropdownPicker
-          label="State"
-          items={states.map(state => ({
-            label: state.name,
-            value: state.isoCode,
-          }))}
-          value={formData.state}
-          onChangeValue={handleStateChange}
-          placeholder="Select State"
-          searchable={true}
-          disabled={!selectedCountry}
-          open={openDropdowns.state}
-          setOpen={() => setOpenDropdowns(prev => ({ ...prev, state: !prev.state }))}
-          zIndex={2000}
-        />
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Address</Text>
+            <View style={styles.dropdownSection}>
+              <DropdownPicker
+                label="Country"
+                items={countries.map(country => ({
+                  label: country.name,
+                  value: country.isoCode,
+                }))}
+                value={selectedCountry}
+                onChangeValue={handleCountryChange}
+                placeholder="Select Country"
+                searchable={true}
+                open={openDropdowns.country}
+                setOpen={() => setOpenDropdowns(prev => ({ ...prev, country: !prev.country }))}
+                zIndex={3000}
+              />
+            </View>
 
-        {/* City Dropdown */}
-        <DropdownPicker
-          label="City"
-          items={cities.map(city => ({
-            label: city.name,
-            value: city.name,
-          }))}
-          value={formData.city}
-          onChangeValue={handleCityChange}
-          placeholder="Select City"
-          searchable={true}
-          disabled={!selectedState}
-          open={openDropdowns.city}
-          setOpen={() => setOpenDropdowns(prev => ({ ...prev, city: !prev.city }))}
-          zIndex={1000}
-        />
+            <View style={styles.dropdownSection}>
+              <DropdownPicker
+                label="State"
+                items={states.map(state => ({
+                  label: state.name,
+                  value: state.isoCode,
+                }))}
+                value={selectedState}
+                onChangeValue={handleStateChange}
+                placeholder="Select State"
+                searchable={true}
+                disabled={!selectedCountry}
+                open={openDropdowns.state}
+                setOpen={() => setOpenDropdowns(prev => ({ ...prev, state: !prev.state }))}
+                zIndex={2000}
+              />
+            </View>
 
-        <Button 
-          mode="contained" 
-          onPress={handleSubmit} 
-          style={styles.submitButton}
-          icon="send"
-        >
-          Submit
-        </Button>
-        <Button 
-          mode="outlined" 
-          onPress={() => router.back()} 
-          style={styles.cancelButton}
-          icon="close"
-        >
-          Cancel
-        </Button>
+            <View style={styles.dropdownSection}>
+              <DropdownPicker
+                label="City"
+                items={cities.map(city => ({
+                  label: city.name,
+                  value: city.name,
+                }))}
+                value={selectedCity}
+                onChangeValue={handleCityChange}
+                placeholder="Select City"
+                searchable={true}
+                disabled={!selectedState}
+                open={openDropdowns.city}
+                setOpen={() => setOpenDropdowns(prev => ({ ...prev, city: !prev.city }))}
+                zIndex={1000}
+              />
+            </View>
+          </View>
+
+          <View style={styles.buttonContainer}>
+            <Button 
+              mode="contained" 
+              onPress={handleSubmit} 
+              style={styles.submitButton}
+              icon="send"
+              contentStyle={styles.buttonContent}
+            >
+              Submit
+            </Button>
+            <Button 
+              mode="outlined" 
+              onPress={() => router.back()} 
+              style={styles.cancelButton}
+              icon="close"
+              contentStyle={styles.buttonContent}
+            >
+              Cancel
+            </Button>
+          </View>
+        </View>
 
         <Snackbar
           visible={visible}
@@ -443,45 +476,86 @@ const DropdownPicker = ({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f5f5f5',
-    paddingBottom: 20,
+    backgroundColor: '#f3f4f6',
   },
   modalScrollContent: {
-    paddingVertical: 20,
-    paddingHorizontal: 20,
+    padding: 16,
+  },
+  card: {
+    backgroundColor: '#ffffff',
+    borderRadius: 16,
+    padding: 20,
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 3.84,
+    elevation: 5,
   },
   modalTitle: {
     fontSize: 24,
     fontWeight: 'bold',
-    marginBottom: 20,
-    alignSelf: 'center',
-    color: '#333',
+    marginBottom: 24,
+    color: '#1f2937',
+    textAlign: 'center',
+  },
+  section: {
+    marginBottom: 24,
+  },
+  sectionTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#4b5563',
+    marginBottom: 12,
   },
   input: {
-    marginBottom: 15,
+    marginBottom: 12,
     backgroundColor: '#fff',
+  },
+  inputOutline: {
+    borderRadius: 8,
+  },
+  row: {
+    flexDirection: 'row',
+    gap: 12,
+    marginBottom: 12,
+  },
+  halfInput: {
+    flex: 1,
   },
   dropdown: {
     backgroundColor: '#fff',
-    borderColor: '#ccc',
+    borderColor: '#e5e7eb',
+    borderRadius: 8,
+    height: 50,
   },
   dropdownContainer: {
-    borderColor: '#ccc',
+    borderColor: '#e5e7eb',
     backgroundColor: '#fff',
+    borderRadius: 8,
+  },
+  buttonContainer: {
+    gap: 12,
+    marginTop: 24,
   },
   submitButton: {
-    backgroundColor: '#6200ee',
-    padding: 10,
+    backgroundColor: '#2563eb',
     borderRadius: 8,
-    marginTop: 10,
   },
   cancelButton: {
-    borderColor: '#6200ee',
-    padding: 10,
+    borderColor: '#2563eb',
     borderRadius: 8,
-    marginTop: 10,
+  },
+  buttonContent: {
+    paddingVertical: 8,
   },
   snackbar: {
-    backgroundColor: '#333',
+    backgroundColor: '#1f2937',
+  },
+  dropdownSection: {
+    marginBottom: 16,
+    zIndex: 1000,
   },
 });

@@ -16,7 +16,7 @@ export default function LoginScreen() {
   const [password, setPassword] = useState('');
   const [isPasswordVisible, setIsPasswordVisible] = useState(false);
   const buttonScale = useSharedValue(1);
-  const [error, setError] = useState('');
+
 
   const animatedStyle = useAnimatedStyle(() => ({
     transform: [{ scale: buttonScale.value }],
@@ -35,8 +35,8 @@ export default function LoginScreen() {
       const storedData = await AsyncStorage.getItem('loginData');
       if (storedData) {
         const parsedData = JSON.parse(storedData);
-        if (parsedData.token && parsedData.user) {
-          login(parsedData.user, parsedData.token);
+        if (parsedData.token && parsedData.user && parsedData.session) {
+          login(parsedData.user, parsedData.token, parsedData.session);
           router.push('/(tabs)');
         }
       }
@@ -66,8 +66,8 @@ export default function LoginScreen() {
 
       const data = await response.json();
       
-      if (data.token && data.user) {
-        login(data.user, data.token);
+      if (data.token && data.user && data.session) {
+        login(data.user, data.token, data.session);
         Alert.alert('Login Successful', 'Welcome back!');
         setTimeout(() => {
           router.push('/(tabs)');

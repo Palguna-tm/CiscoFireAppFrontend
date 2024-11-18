@@ -1,64 +1,26 @@
 import React, { useState, useEffect } from 'react';
-import { StyleSheet, View, Text, Button, ActivityIndicator, TouchableOpacity, Animated, Easing, Alert, ScrollView, TextInput, Modal, Dimensions, Linking } from 'react-native';
+import { StyleSheet, View, Text, Button, ActivityIndicator, TouchableOpacity, Animated, Alert, ScrollView, Easing } from 'react-native';
 import { CameraView, Camera } from "expo-camera"
 import { MaterialIcons } from '@expo/vector-icons';
 import config from '../config';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Location from 'expo-location';
-
-
-import { Country, State, City } from 'country-state-city';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
-
-
+import MapView, { Marker } from 'react-native-maps';
 
 export default function HomeScreen() {
   const router = useRouter();
 
   const [hasPermission, setHasPermission] = useState<boolean | null>(null);
   const [scanned, setScanned] = useState(false);
-  
   const [greeting, setGreeting] = useState<string>('');
   const [cameraOpen, setCameraOpen] = useState(false);
   const [extinguisherInfo, setExtinguisherInfo] = useState<any>(null);
   const [userRole, setUserRole] = useState<string | null>(null);
-  const [userPermissions, setUserPermissions] = useState<string[]>([]);
-  const [isLocationCollapsed, setIsLocationCollapsed] = useState(true);
-  const [isDetailsCollapsed, setIsDetailsCollapsed] = useState(true);
-  const animatedValue = new Animated.Value(0);
-  const animatedLocationArrow = new Animated.Value(0);
-  const animatedDetailsArrow = new Animated.Value(0);
-
-  const defaultFormData = {
-    location: '',
-    block: '',
-    area: '',
-    type_capacity: '',
-    manufacture_year: '',
-    latitude: 0,
-    longitude: 0,
-    country: '',
-    state: '',
-    city: '',
-    floor: '',
-    installation_year: '',
-  };
-
-  const [formData, setFormData] = useState(defaultFormData);
-
-  const [selectedCountry, setSelectedCountry] = useState<string | null>(null);
-  const [selectedState, setSelectedState] = useState<string | null>(null);
-  const [selectedCity, setSelectedCity] = useState<string | null>(null);
-
-  const [googleMapsUrl, setGoogleMapsUrl] = useState<string | null>(null);
-
   const [activeTab, setActiveTab] = useState('location');
-
-  const toggleModal = () => {
-    // Clear form data when closing the modal
-    setFormData(defaultFormData);
-  };
+  const animatedValue = new Animated.Value(0);
+  const [googleMapsUrl, setGoogleMapsUrl] = useState<string | null>(null);
 
   useEffect(() => {
     (async () => {
@@ -67,124 +29,8 @@ export default function HomeScreen() {
         Alert.alert('Permission to access location was denied');
         return;
       }
-
-      try {
-        let location = await Location.getCurrentPositionAsync({
-          accuracy: Location.Accuracy.Highest,
-          distanceInterval: 1,
-          timeInterval: 1000,
-        });
-        console.log('Retrieved location:', location);
-        setFormData((prevData) => ({
-          ...prevData,
-          latitude: location.coords.latitude,
-          longitude: location.coords.longitude,
-        }));
-      } catch (error) {
-        console.error('Error retrieving location:', error);
-        Alert.alert('Error', 'Failed to retrieve location');
-      }
     })();
   }, []);
-
-  const handleInputChange = (name: string, value: string) => {
-    setFormData({ ...formData, [name]: value });
-  };
-
-  const validateFormData = () => {
-    const {
-      location,
-      block,
-      area,
-      type_capacity,
-      manufacture_year,
-      country,
-      state,
-      city,
-      floor,
-      installation_year,
-    } = formData;
-
-    const missingFields = [];
-
-    if (!location) missingFields.push('Location');
-    if (!block) missingFields.push('Block');
-    if (!area) missingFields.push('Area');
-    if (!type_capacity) missingFields.push('Type/Capacity');
-    if (!manufacture_year) missingFields.push('Manufacture Year');
-    if (!country) missingFields.push('Country');
-    if (!state) missingFields.push('State');
-    if (!city) missingFields.push('City');
-    if (!floor) missingFields.push('Floor');
-    if (!installation_year) missingFields.push('Installation Year');
-
-    // Ensure that manufacture_year and installation_year are not empty strings
-    if (manufacture_year === '') missingFields.push('Manufacture Year');
-    if (installation_year === '') missingFields.push('Installation Year');
-
-    if (missingFields.length > 0) {
-      Alert.alert('Validation Error', `The following fields are missing: ${missingFields.join(', ')}`);
-      return false;
-    }
-
-    if (isNaN(Number(manufacture_year)) || isNaN(Number(installation_year))) {
-      Alert.alert('Validation Error', 'Year fields must be numeric');
-      return false;
-    }
-
-    return true;
-  };
-
-  const handleSubmit = async () => {
-    if (!validateFormData()) {
-      return;
-    }
-
-    try {
-      const userData = await AsyncStorage.getItem('loginData');
-      let token = '';
-
-      if (userData) {
-        const parsedData = JSON.parse(userData);
-        token = parsedData.token;
-      }
-
-      const dataToSubmit = {
-        ...formData,
-        manufacture_year: formData.manufacture_year ? parseInt(formData.manufacture_year) : null,
-        installation_year: new Date().getFullYear(),
-      };
-
-      const response = await fetch(`${config.apiUrl}/mobile/extinguisher/add`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
-        },
-        body: JSON.stringify(dataToSubmit),
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        if (errorData.error === "Duplicate extinguisher entry") {
-          Alert.alert('Error', 'Duplicate extinguisher entry');
-        } else {
-          console.error('Error:', errorData);
-          Alert.alert('Error', 'Failed to add extinguisher');
-        }
-      } else {
-        const responseData = await response.json();
-        console.log('Success:', responseData);
-        Alert.alert('Success', 'Extinguisher added successfully');
-        
-        // Clear form data and close the modal
-        
-      }
-    } catch (error) {
-      console.error('Error:', error);
-      Alert.alert('Error', 'An unexpected error occurred');
-    }
-  };
 
   useEffect(() => {
     const fetchUserData = async () => {
@@ -192,10 +38,8 @@ export default function HomeScreen() {
       if (userData) {
         const { user } = JSON.parse(userData);
         setUserRole(user.role);
-        setUserPermissions(user.permissions);
       }
     };
-
     fetchUserData();
   }, []);
 
@@ -224,13 +68,13 @@ export default function HomeScreen() {
           Animated.timing(animatedValue, {
             toValue: 1,
             duration: 1500,
-            easing: Easing.linear,
+            easing: Easing.linear, // Now this will work
             useNativeDriver: true,
           }),
           Animated.timing(animatedValue, {
             toValue: 0,
             duration: 1500,
-            easing: Easing.linear,
+            easing: Easing.linear, // Now this will work
             useNativeDriver: true,
           }),
         ])
@@ -254,8 +98,6 @@ export default function HomeScreen() {
       if (response.ok) {
         const info = await response.json();
         setExtinguisherInfo(info);
-
-        // Generate Google Maps URL and store it in state
         const url = `https://www.google.com/maps/search/?api=1&query=${info.latitude},${info.longitude}`;
         setGoogleMapsUrl(url);
       } else {
@@ -266,25 +108,6 @@ export default function HomeScreen() {
     }
   };
 
-
-  const toggleLocationCollapse = () => {
-    Animated.timing(animatedLocationArrow, {
-      toValue: isLocationCollapsed ? 1 : 0,
-      duration: 300,
-      useNativeDriver: false,
-    }).start();
-    setIsLocationCollapsed(!isLocationCollapsed);
-  };
-
-  const toggleDetailsCollapse = () => {
-    Animated.timing(animatedDetailsArrow, {
-      toValue: isDetailsCollapsed ? 1 : 0,
-      duration: 300,
-      useNativeDriver: false,
-    }).start();
-    setIsDetailsCollapsed(!isDetailsCollapsed);
-  };
-
   const handleScanQRCodePress = () => {
     setScanned(false);
     setCameraOpen(true);
@@ -292,108 +115,151 @@ export default function HomeScreen() {
     setGoogleMapsUrl(null);
   };
 
-  const countries = Country.getAllCountries();
-  const states = selectedCountry ? State.getStatesOfCountry(selectedCountry as string) : [];
-  const cities = selectedState && selectedCountry ? City.getCitiesOfState(selectedCountry as string, selectedState as string) : [];
-
-  const handleCountryChange = (value: string) => {
-    setSelectedCountry(value);
-    setFormData((prevData) => ({
-      ...prevData,
-      country: value,
-      state: '', // Reset state and city when country changes
-      city: '',
-    }));
-  };
-
-  const handleStateChange = (value: string) => {
-    setSelectedState(value);
-    setFormData((prevData) => ({
-      ...prevData,
-      state: value,
-      city: '', // Reset city when state changes
-    }));
-  };
-
-  const handleCityChange = (value: string) => {
-    setSelectedCity(value);
-    setFormData((prevData) => ({
-      ...prevData,
-      city: value,
-    }));
-  };
-
-  const formatDate = (dateString: string) => {
-    const date = new Date(dateString);
-    return date.toLocaleDateString(); // Formats the date to a readable string
+  const openAddExtinguisherModal = () => {
+    router.push('/modal/add-extinguisher');
   };
 
   const renderTabContent = () => {
     if (activeTab === 'location') {
       return (
-        <View style={styles.tabContent}>
-          <Text style={styles.infoText}>
-            <MaterialIcons name="place" size={20} color="#FF6347" /> Location: {extinguisherInfo.location}
-          </Text>
-          <Text style={styles.infoText}>
-            <MaterialIcons name="location-city" size={20} color="#4682B4" /> Block: {extinguisherInfo.block}
-          </Text>
-          <Text style={styles.infoText}>
-            <MaterialIcons name="map" size={20} color="#32CD32" /> Area: {extinguisherInfo.area}
-          </Text>
-          <Text style={styles.infoText}>
-            <MaterialIcons name="layers" size={20} color="#FFD700" /> Floor: {extinguisherInfo.floor}
-          </Text>
-          <Text style={styles.infoText}>
-            <MaterialIcons name="public" size={20} color="#8A2BE2" /> Country: {extinguisherInfo.country}
-          </Text>
-          <Text style={styles.infoText}>
-            <MaterialIcons name="flag" size={20} color="#FF4500" /> State: {extinguisherInfo.state}
-          </Text>
-          <Text style={styles.infoText}>
-            <MaterialIcons name="location-city" size={20} color="#1E90FF" /> City: {extinguisherInfo.city}
-          </Text>
-          <Text style={styles.infoText}>
-            <MaterialIcons name="precision-manufacturing" size={20} color="#FF1493" /> Installation Year: {extinguisherInfo.installation_year}
-          </Text>
+        <View style={modernStyles.tabContent}>
+          {/* Location Overview Card */}
+          <View style={modernStyles.overviewCard}>
+            <View style={modernStyles.overviewHeader}>
+              <MaterialIcons name="location-on" size={28} color="#4A00E0" />
+              <Text style={modernStyles.overviewTitle}>Primary Location</Text>
+            </View>
+            <View style={modernStyles.overviewContent}>
+              <Text style={modernStyles.locationText}>{extinguisherInfo.location}</Text>
+              <Text style={modernStyles.subLocationText}>
+                {extinguisherInfo.block} • {extinguisherInfo.area} • Floor {extinguisherInfo.floor}
+              </Text>
+            </View>
+          </View>
+
+          {/* Location Grid */}
+          <View style={modernStyles.gridContainer}>
+            <View style={modernStyles.gridItem}>
+              <View style={[modernStyles.iconBadge, { backgroundColor: '#F0F4FF' }]}>
+                <MaterialIcons name="public" size={22} color="#4A00E0" />
+              </View>
+              <Text style={modernStyles.gridLabel}>Country</Text>
+              <Text style={modernStyles.gridValue}>{extinguisherInfo.country}</Text>
+            </View>
+
+            <View style={modernStyles.gridItem}>
+              <View style={[modernStyles.iconBadge, { backgroundColor: '#FFF0F0' }]}>
+                <MaterialIcons name="flag" size={22} color="#E04A00" />
+              </View>
+              <Text style={modernStyles.gridLabel}>State</Text>
+              <Text style={modernStyles.gridValue}>{extinguisherInfo.state}</Text>
+            </View>
+
+            <View style={modernStyles.gridItem}>
+              <View style={[modernStyles.iconBadge, { backgroundColor: '#F0FFF4' }]}>
+                <MaterialIcons name="location-city" size={22} color="#00E04A" />
+              </View>
+              <Text style={modernStyles.gridLabel}>City</Text>
+              <Text style={modernStyles.gridValue}>{extinguisherInfo.city}</Text>
+            </View>
+          </View>
+
+          {/* Timeline Section */}
+          <View style={modernStyles.timelineSection}>
+            <Text style={modernStyles.sectionTitle}>Timeline</Text>
+            <View style={modernStyles.timelineItem}>
+              <View style={modernStyles.timelineDot} />
+              <View style={modernStyles.timelineContent}>
+                <Text style={modernStyles.timelineLabel}>Manufactured</Text>
+                <Text style={modernStyles.timelineValue}>{extinguisherInfo.manufacture_year}</Text>
+              </View>
+            </View>
+            <View style={modernStyles.timelineItem}>
+              <View style={modernStyles.timelineDot} />
+              <View style={modernStyles.timelineContent}>
+                <Text style={modernStyles.timelineLabel}>Installed</Text>
+                <Text style={modernStyles.timelineValue}>{extinguisherInfo.installation_year}</Text>
+              </View>
+            </View>
+          </View>
         </View>
       );
     } else if (activeTab === 'details') {
       return (
-        <View style={styles.tabContent}>
-          <Text style={styles.infoText}>
-            <MaterialIcons name="fire-extinguisher" size={20} color="#FF6347" /> Type/Capacity: {extinguisherInfo.type_capacity}
-          </Text>
-          <Text style={styles.infoText}>
-            <MaterialIcons name="factory" size={20} color="#4682B4" /> Manufacture Year: {extinguisherInfo.manufacture_year}
-          </Text>
-          <Text style={styles.infoText}>
-            <MaterialIcons name="check-circle" size={20} color="#32CD32" /> Cylinder Condition: {extinguisherInfo.cylinder_condition}
-          </Text>
-          <Text style={styles.infoText}>
-            <MaterialIcons name="check-circle" size={20} color="#FFD700" /> Hose Condition: {extinguisherInfo.hose_condition}
-          </Text>
-          <Text style={styles.infoText}>
-            <MaterialIcons name="check-circle" size={20} color="#8A2BE2" /> Stand Condition: {extinguisherInfo.stand_condition}
-          </Text>
-          <Text style={styles.infoText}>
-            <MaterialIcons name="scale" size={20} color="#FF4500" /> Full Weight: {extinguisherInfo.full_weight}
-          </Text>
-          <Text style={styles.infoText}>
-            <MaterialIcons name="scale" size={20} color="#1E90FF" /> Actual Weight: {extinguisherInfo.actual_weight}
-          </Text>
-          <Text style={styles.infoText}>
-            <MaterialIcons name="calendar-today" size={20} color="#FF1493" /> Refilled Date: {formatDate(extinguisherInfo.refilled_date)}
-          </Text>
-          <Text style={styles.infoText}>
-            <MaterialIcons name="event-available" size={20} color="#FF6347" /> Next Refill Date: {formatDate(extinguisherInfo.next_refill_date)}
-          </Text>
-          <Text style={styles.infoText}>
-            <MaterialIcons name="calendar-today" size={20} color="#4682B4" /> Serviced Date: {formatDate(extinguisherInfo.serviced_date)}
-          </Text>
-          <Text style={styles.infoText}>
-            <MaterialIcons name="schedule" size={20} color="#32CD32" /> Next Service Date: {formatDate(extinguisherInfo.next_service_date)}
-          </Text>
+        <View style={modernStyles.tabContent}>
+          {/* Status Card */}
+          <View style={modernStyles.statusCard}>
+            <View style={modernStyles.statusHeader}>
+              <Text style={modernStyles.statusTitle}>Equipment Status</Text>
+              <View style={[modernStyles.statusBadge, { backgroundColor: '#E8FFF3' }]}>
+                <Text style={[modernStyles.statusText, { color: '#00B464' }]}>Active</Text>
+              </View>
+            </View>
+            
+            <View style={modernStyles.statusDetails}>
+              <Text style={modernStyles.typeLabel}> Type / Capacity: {extinguisherInfo.type_capacity}</Text>
+            </View>
+          </View>
+
+          {/* Weight Information */}
+          <View style={modernStyles.weightContainer}>
+            <View style={modernStyles.weightGauge}>
+              <Text style={modernStyles.weightValue}>{extinguisherInfo.actual_weight}</Text>
+              <Text style={modernStyles.weightUnit}>kg</Text>
+              <Text style={modernStyles.weightLabel}>Current Weight</Text>
+            </View>
+            <View style={modernStyles.weightInfo}>
+              <View style={modernStyles.weightMetric}>
+                <Text style={modernStyles.metricLabel}>Full Weight</Text>
+                <Text style={modernStyles.metricValue}>{extinguisherInfo.full_weight} kg</Text>
+              </View>
+              <View style={modernStyles.weightMetric}>
+                <Text style={modernStyles.metricLabel}>Weight Status</Text>
+                <View style={modernStyles.statusIndicator}>
+                  <MaterialIcons name="check-circle" size={16} color="#00B464" />
+                  <Text style={modernStyles.statusIndicatorText}>Normal</Text>
+                </View>
+              </View>
+            </View>
+          </View>
+
+          {/* Condition Cards */}
+          <View style={modernStyles.conditionGrid}>
+            <View style={modernStyles.conditionCard}>
+              <MaterialIcons name="check-circle" size={24} color="#00B464" />
+              <Text style={modernStyles.conditionLabel}>Cylinder</Text>
+              <Text style={modernStyles.conditionValue}>{extinguisherInfo.cylinder_condition}</Text>
+            </View>
+            <View style={modernStyles.conditionCard}>
+              <MaterialIcons name="check-circle" size={24} color="#00B464" />
+              <Text style={modernStyles.conditionLabel}>Hose</Text>
+              <Text style={modernStyles.conditionValue}>{extinguisherInfo.hose_condition}</Text>
+            </View>
+            <View style={modernStyles.conditionCard}>
+              <MaterialIcons name="check-circle" size={24} color="#00B464" />
+              <Text style={modernStyles.conditionLabel}>Stand</Text>
+              <Text style={modernStyles.conditionValue}>{extinguisherInfo.stand_condition}</Text>
+            </View>
+          </View>
+
+          {/* Service Schedule */}
+          <View style={modernStyles.scheduleCard}>
+            <Text style={modernStyles.scheduleTitle}>Maintenance Schedule</Text>
+            <View style={modernStyles.scheduleGrid}>
+              <View style={modernStyles.scheduleItem}>
+                <Text style={modernStyles.scheduleLabel}>Next Service</Text>
+                <Text style={modernStyles.scheduleDate}>
+                  {new Date(extinguisherInfo.next_service_date).toLocaleDateString()}
+                </Text>
+              </View>
+              <View style={modernStyles.scheduleItem}>
+                <Text style={modernStyles.scheduleLabel}>Next Refill</Text>
+                <Text style={modernStyles.scheduleDate}>
+                  {new Date(extinguisherInfo.next_refill_date).toLocaleDateString()}
+                </Text>
+              </View>
+            </View>
+          </View>
         </View>
       );
     }
@@ -415,59 +281,49 @@ export default function HomeScreen() {
     );
   }
 
-  const currentYear = new Date().getFullYear();
-  const yearOptions = Array.from({ length: 30 }, (_, i) => ({
-    label: (currentYear - i).toString(),
-    value: (currentYear - i).toString(),
-  }));
-
-  const pickerContainerStyle = {
-    width: Dimensions.get('window').width * 0.68,
-    height: 50,
-    marginBottom: 15,
-    borderRadius: 25,
-    overflow: 'hidden' as 'hidden',
-  };
-
-  // Function to open the Add Extinguisher Modal
-  const openAddExtinguisherModal = () => {
-    router.push('/modal/add-extinguisher');
-  };
-
   return (
     <ScrollView contentContainerStyle={styles.scrollContainer}>
       <View style={styles.container}>
-        <LinearGradient
-          colors={['#FFDEE9', '#B5FFFC']}
-          start={[0, 0]}
-          end={[1, 1]}
-          style={styles.greetingContainer}
-        >
-          <Text style={styles.greeting}>
-            {greeting} <MaterialIcons name="wb-sunny" size={24} color="#FFD700" />
-          </Text>
-        </LinearGradient>
+        <View style={modernStyles.headerSection}>
+          <View style={modernStyles.greetingWrapper}>
+            <Text style={modernStyles.greetingLabel}>Welcome Back</Text>
+            <Text style={modernStyles.greetingText}>{greeting}</Text>
+          </View>
 
-        {userRole === 'admin' && (
-          <TouchableOpacity style={styles.addButton} onPress={openAddExtinguisherModal}>
-            <Text style={styles.buttonText}>Add Extinguisher</Text>
-          </TouchableOpacity>
-        )}
+          <View style={modernStyles.actionButtons}>
+            {userRole === 'admin' && (
+              <TouchableOpacity 
+                style={[styles.actionButton, { backgroundColor: '#4A00E0' }]} 
+                onPress={openAddExtinguisherModal}
+              >
+                <LinearGradient
+                  colors={['#4A00E0', '#8E2DE2']}
+                  start={[0, 0]}
+                  end={[1, 1]}
+                  style={styles.actionButtonGradient}
+                >
+                  <MaterialIcons name="add-circle-outline" size={24} color="white" />
+                  <Text style={styles.actionButtonText}>Add Extinguisher</Text>
+                </LinearGradient>
+              </TouchableOpacity>
+            )}
 
-        <TouchableOpacity
-          style={styles.qrTab}
-          onPress={handleScanQRCodePress}
-        >
-          <LinearGradient
-            colors={['#00c6ff', '#0072ff']}
-            start={[0, 0]}
-            end={[1, 1]}
-            style={styles.qrButtonGradient}
-          >
-            <MaterialIcons name="qr-code-scanner" size={28} color="white" />
-            <Text style={styles.qrText}>Scan QR Code</Text>
-          </LinearGradient>
-        </TouchableOpacity>
+            <TouchableOpacity 
+              style={[styles.actionButton, { backgroundColor: '#00B4DB' }]}
+              onPress={handleScanQRCodePress}
+            >
+              <LinearGradient
+                colors={['#00B4DB', '#0083B0']}
+                start={[0, 0]}
+                end={[1, 1]}
+                style={styles.actionButtonGradient}
+              >
+                <MaterialIcons name="qr-code-scanner" size={24} color="white" />
+                <Text style={styles.actionButtonText}>Scan QR</Text>
+              </LinearGradient>
+            </TouchableOpacity>
+          </View>
+        </View>
 
         {cameraOpen && (
           <View style={styles.cameraContainer}>
@@ -504,17 +360,26 @@ export default function HomeScreen() {
           </View>
         )}
 
-        {googleMapsUrl && (
-          <View style={styles.mapButtonContainer}>
-            <Button
-              title="View Location in Google Maps"
-              onPress={() => {
-                Linking.openURL(googleMapsUrl).catch(err => {
-                  console.error('Failed to open Google Maps:', err);
-                  Alert.alert('Error', 'Failed to open Google Maps');
-                });
+        {extinguisherInfo && extinguisherInfo.latitude && extinguisherInfo.longitude && (
+          <View style={styles.mapContainer}>
+            <MapView
+              style={styles.map}
+              initialRegion={{
+                latitude: parseFloat(extinguisherInfo.latitude) || 0,
+                longitude: parseFloat(extinguisherInfo.longitude) || 0,
+                latitudeDelta: 0.001,
+                longitudeDelta: 0.001,
               }}
-            />
+            >
+              <Marker
+                coordinate={{
+                  latitude: parseFloat(extinguisherInfo.latitude) || 0,
+                  longitude: parseFloat(extinguisherInfo.longitude) || 0,
+                }}
+                title={extinguisherInfo.location || 'Location'}
+                description={`${extinguisherInfo.block || ''}, ${extinguisherInfo.area || ''}`}
+              />
+            </MapView>
           </View>
         )}
       </View>
@@ -522,42 +387,294 @@ export default function HomeScreen() {
   );
 }
 
-const pickerSelectStyles = StyleSheet.create({
-  inputIOS: {
-    height: 50,
-    borderColor: '#ccc',
-    borderWidth: 1,
-    borderRadius: 25,
-    marginBottom: 15,
-    paddingHorizontal: 20,
+const modernStyles = StyleSheet.create({
+  headerSection: {
     width: '100%',
+    paddingHorizontal: 20,
+    paddingVertical: 24,
     backgroundColor: '#fff',
+    borderBottomLeftRadius: 30,
+    borderBottomRightRadius: 30,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 5,
+    marginBottom: 20,
+  },
+  greetingWrapper: {
+    marginBottom: 24,
+  },
+  greetingLabel: {
+    fontSize: 14,
+    color: '#666',
+    marginBottom: 4,
+    letterSpacing: 0.5,
+    textTransform: 'uppercase',
+  },
+  greetingText: {
+    fontSize: 32,
+    fontWeight: '700',
+    color: '#1A1A1A',
+    letterSpacing: -0.5,
+  },
+  actionButtons: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    width: '100%',
+    paddingHorizontal: 0,
+    marginTop: 20,
+    marginBottom: 10,
+  },
+  tabContent: {
+    padding: 16,
+    gap: 20,
+  },
+  overviewCard: {
+    backgroundColor: '#fff',
+    borderRadius: 16,
+    padding: 20,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 5,
-    elevation: 3,
-    justifyContent: 'center',
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
+    elevation: 2,
   },
-  inputAndroid: {
-    height: 50,
-    borderColor: '#ccc',
-    borderWidth: 1,
-    borderRadius: 25,
-    marginBottom: 15,
-    paddingHorizontal: 20,
-    width: '100%',
+  overviewHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    marginBottom: 16,
+  },
+  overviewTitle: {
+    fontSize: 20,
+    fontWeight: '600',
+    color: '#1A1A1A',
+  },
+  overviewContent: {
+    gap: 8,
+  },
+  locationText: {
+    fontSize: 24,
+    fontWeight: '700',
+    color: '#1A1A1A',
+  },
+  subLocationText: {
+    fontSize: 16,
+    color: '#666',
+  },
+  gridContainer: {
+    flexDirection: 'row',
+    gap: 12,
+    flexWrap: 'wrap',
+  },
+  gridItem: {
+    flex: 1,
+    minWidth: 100,
     backgroundColor: '#fff',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 5,
-    elevation: 3,
+    borderRadius: 16,
+    padding: 16,
+    alignItems: 'center',
+    gap: 8,
+  },
+  iconBadge: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    alignItems: 'center',
     justifyContent: 'center',
   },
-  iconContainer: {
-    top: 15,
-    right: 15,
+  gridLabel: {
+    fontSize: 12,
+    color: '#666',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  gridValue: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#1A1A1A',
+    textAlign: 'center',
+  },
+  statusCard: {
+    backgroundColor: '#fff',
+    borderRadius: 16,
+    padding: 20,
+  },
+  statusHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  statusBadge: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 20,
+  },
+  weightContainer: {
+    flexDirection: 'row',
+    backgroundColor: '#fff',
+    borderRadius: 16,
+    padding: 20,
+    gap: 20,
+  },
+  weightGauge: {
+    alignItems: 'center',
+    flex: 1,
+  },
+  weightValue: {
+    fontSize: 32,
+    fontWeight: '700',
+    color: '#1A1A1A',
+  },
+  conditionGrid: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  conditionCard: {
+    flex: 1,
+    backgroundColor: '#fff',
+    borderRadius: 16,
+    padding: 16,
+    alignItems: 'center',
+    gap: 8,
+  },
+  scheduleCard: {
+    backgroundColor: '#fff',
+    borderRadius: 16,
+    padding: 20,
+  },
+  scheduleGrid: {
+    flexDirection: 'row',
+    gap: 20,
+    marginTop: 16,
+  },
+  scheduleItem: {
+    flex: 1,
+  },
+  // Add other necessary styles...
+
+  // Timeline styles
+  timelineSection: {
+    backgroundColor: '#fff',
+    borderRadius: 16,
+    padding: 20,
+  },
+  sectionTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#1A1A1A',
+    marginBottom: 16,
+  },
+  timelineItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  timelineDot: {
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+    backgroundColor: '#4A00E0',
+    marginRight: 12,
+  },
+  timelineContent: {
+    flex: 1,
+  },
+  timelineLabel: {
+    fontSize: 14,
+    color: '#666',
+  },
+  timelineValue: {
+    fontSize: 16,
+    fontWeight: '500',
+    color: '#1A1A1A',
+  },
+
+  // Status styles
+  statusTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#1A1A1A',
+  },
+  statusText: {
+    fontSize: 14,
+    fontWeight: '500',
+  },
+  statusDetails: {
+    marginTop: 12,
+  },
+  typeLabel: {
+    fontSize: 16,
+    color: '#666',
+  },
+
+  // Weight styles
+  weightUnit: {
+    fontSize: 16,
+    color: '#666',
+    marginTop: 4,
+  },
+  weightLabel: {
+    fontSize: 14,
+    color: '#666',
+    marginTop: 8,
+  },
+  weightInfo: {
+    flex: 1,
+    gap: 16,
+  },
+  weightMetric: {
+    gap: 4,
+  },
+  metricLabel: {
+    fontSize: 14,
+    color: '#666',
+  },
+  metricValue: {
+    fontSize: 16,
+    fontWeight: '500',
+    color: '#1A1A1A',
+  },
+  statusIndicator: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  statusIndicatorText: {
+    fontSize: 14,
+    color: '#00B464',
+    fontWeight: '500',
+  },
+
+  // Condition styles
+  conditionLabel: {
+    fontSize: 14,
+    color: '#666',
+  },
+  conditionValue: {
+    fontSize: 16,
+    fontWeight: '500',
+    color: '#1A1A1A',
+  },
+
+  // Schedule styles
+  scheduleTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#1A1A1A',
+    marginBottom: 12,
+  },
+  scheduleLabel: {
+    fontSize: 14,
+    color: '#666',
+    marginBottom: 4,
+  },
+  scheduleDate: {
+    fontSize: 16,
+    fontWeight: '500',
+    color: '#1A1A1A',
   },
 });
 
@@ -573,62 +690,6 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-start',
     backgroundColor: '#f5f5f5',
   },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    width: '100%',
-    paddingHorizontal: 20,
-    marginBottom: 10,
-  },
-  // greeting: {
-  //   fontSize: 20, // Smaller size
-  //   fontWeight: 'bold',
-  //   color: '#333',
-  // },
-  addButton: {
-    backgroundColor: '#007BFF',
-    padding: 15,
-    borderRadius: 30,
-    alignItems: 'center',
-    width: '80%',
-    marginVertical: 10,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 5,
-    elevation: 3,
-  },
-  buttonText: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: 'bold',
-  },
-  qrTab: {
-    marginTop: 20,
-    borderRadius: 30,
-    overflow: 'hidden',
-    width: '80%',
-    alignSelf: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 4.65,
-    elevation: 8,
-  },
-  qrButtonGradient: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 15,
-    paddingHorizontal: 20,
-  },
-  qrText: {
-    marginLeft: 10,
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: 'white',
-  },
   cameraContainer: {
     flex: 1,
     justifyContent: 'center',
@@ -643,8 +704,8 @@ const styles = StyleSheet.create({
     width: 250,
     height: 250,
     borderWidth: 3,
-    borderColor: 'rgba(0, 255, 0, 0.9)', // Bright green for a futuristic look
-    borderRadius: 15, // Rounded corners for a modern look
+    borderColor: 'rgba(0, 255, 0, 0.9)',
+    borderRadius: 15,
     position: 'relative',
     justifyContent: 'center',
     alignItems: 'center',
@@ -657,11 +718,6 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     textAlign: 'center',
   },
-  bottomOverlay: {
-    flex: 1,
-    width: '100%',
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-  },
   buttonContainer: {
     position: 'absolute',
     bottom: 50,
@@ -669,173 +725,10 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     alignItems: 'center',
   },
-  infoContainer: {
-    marginTop: 20,
-    padding: 20,
-    backgroundColor: '#fff',
-    borderRadius: 10,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 2,
-    elevation: 2,
-    width: '95%',
-    alignSelf: 'center',
-    marginBottom: 40,
-  },
-  infoText: {
-    fontSize: 16,
-    marginBottom: 10,
-    color: '#333',
-    fontFamily: 'Roboto',
-    lineHeight: 24,
-    letterSpacing: 0.5,
-    textShadowColor: 'rgba(0, 0, 0, 0.1)',
-    textShadowOffset: { width: 1, height: 1 },
-    textShadowRadius: 1,
-  },
-  button: {
-    marginTop: 10,
-    padding: 10,
-    backgroundColor: '#007BFF',
-    borderRadius: 5,
-    alignItems: 'center',
-  },
   centered: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-  },
-  addFormContainer: {
-    paddingVertical: 20,
-    paddingHorizontal: 20,
-    alignItems: 'center',
-  },
-  input: {
-    height: 50,
-    borderColor: '#ccc',
-    borderWidth: 1,
-    borderRadius: 25,
-    marginBottom: 15,
-    paddingHorizontal: 20,
-    width: '100%',
-    backgroundColor: '#fff',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 5,
-    elevation: 3,
-  },
-  inputLabel: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: '#333',
-    marginBottom: 20,
-    textAlign: 'center',
-  },
-  collapsibleHeaderContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingVertical: 10,
-    paddingHorizontal: 15,
-    backgroundColor: 'linear-gradient(90deg, rgba(255,0,150,1) 0%, rgba(0,204,255,1) 100%)',
-    borderRadius: 5,
-    marginBottom: 5,
-  },
-  collapsibleContent: {
-    padding: 10,
-    backgroundColor: '#e9ecef',
-    borderRadius: 5,
-    marginBottom: 10,
-  },
-  collapsibleHeader: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#fff',
-    lineHeight: 26,
-    letterSpacing: 0.7,
-    textShadowColor: 'rgba(0, 0, 0, 0.2)',
-    textShadowOffset: { width: 1, height: 1 },
-    textShadowRadius: 2,
-  },
-  updateButton: {
-    backgroundColor: '#007BFF',
-    padding: 15,
-    borderRadius: 30,
-    alignItems: 'center',
-    width: '95%',
-    marginTop: 20,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 5,
-    elevation: 3,
-  },
-  datePicker: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    borderWidth: 1,
-    borderColor: '#ddd',
-    borderRadius: 25,
-    padding: 15,
-    marginBottom: 15,
-    width: '90%',
-    backgroundColor: '#fff',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 5,
-    elevation: 2,
-  },
-  dateText: {
-    flex: 1,
-  },
-  modalContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-  },
-  modalContent: {
-    width: '90%',
-    maxHeight: '80%', // Ensure the modal doesn't exceed the screen height
-    backgroundColor: '#fff',
-    borderRadius: 10,
-    padding: 20,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 5,
-    elevation: 5,
-  },
-  modalScrollContent: {
-    paddingVertical: 20, // Add padding to the top and bottom
-  },
-  modalTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    marginBottom: 20,
-    textAlign: 'center',
-  },
-  cancelButton: {
-    backgroundColor: '#FF0000',
-    padding: 15,
-    borderRadius: 30,
-    alignItems: 'center',
-    width: '95%',
-    marginTop: 10,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 5,
-    elevation: 3,
-  },
-  mapButtonContainer: {
-    paddingBottom: 20, // Add padding to the bottom
-    paddingHorizontal: 10, // Optional: Add horizontal padding for better spacing
-    marginTop: 10, // Optional: Add margin to the top for spacing from other elements
   },
   card: {
     backgroundColor: '#fff',
@@ -867,44 +760,88 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
   },
   tabContent: {
-    padding: 10,
+    padding: 15,
   },
-  greetingContainer: {
-    width: '80%',
-    padding: 10,
-    borderRadius: 15,
-    marginVertical: 0,
+  infoGroup: {
+    gap: 12,
+  },
+  infoCard: {
+    flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
+    backgroundColor: '#f8f9fa',
+    padding: 16,
+    borderRadius: 12,
+    marginBottom: 8,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 4.65,
-    elevation: 8,
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    elevation: 2,
   },
-  greeting: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: '#333',
-    textShadowColor: 'rgba(0, 0, 0, 0.2)',
-    textShadowOffset: { width: 1, height: 1 },
-    textShadowRadius: 2,
+  weightCard: {
+    flexDirection: 'column',
+    gap: 12,
   },
-  pickerContainer: {
-    height: 50,
-    borderColor: '#ccc',
-    borderWidth: 1,
-    borderRadius: 25,
-    marginBottom: 15,
-    paddingHorizontal: 20,
-    width: '100%',
-    backgroundColor: '#fff',
+  weightInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  infoIcon: {
+    marginRight: 12,
+  },
+  infoTextContainer: {
+    flex: 1,
+  },
+  infoLabel: {
+    fontSize: 12,
+    color: '#6c757d',
+    marginBottom: 4,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  infoValue: {
+    fontSize: 16,
+    color: '#212529',
+    fontWeight: '500',
+  },
+  mapContainer: {
+    width: '95%',
+    height: 200,
+    marginVertical: 10,
+    borderRadius: 10,
+    overflow: 'hidden',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 5,
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+    elevation: 5,
+    backgroundColor: '#f5f5f5',
+  },
+  map: {
+    width: '100%',
+    height: '100%',
+  },
+  actionButton: {
+    flex: 1,
+    marginHorizontal: 5,
+    borderRadius: 15,
+    overflow: 'hidden',
     elevation: 3,
-    justifyContent: 'center', // Center the picker text
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+  },
+  actionButtonGradient: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 15,
+  },
+  actionButtonText: {
+    color: 'white',
+    fontSize: 16,
+    fontWeight: '600',
+    marginLeft: 8,
   },
 });
-

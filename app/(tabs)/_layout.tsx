@@ -76,17 +76,7 @@ export default function TabLayout() {
         headerShown: true,
         tabBarLabelStyle: { color: 'white' },
         headerTitle: () => <AnimatedLogo />,
-        headerRight: () => (
-          <View style={styles.headerIcons} >
-            <TouchableOpacity
-              onPressIn={handlePressIn}
-              onPressOut={handlePressOut}
-              style={styles.logoutIcon}
-            >
-              <Icon name="power-settings-new" size={24} color="white"  />
-            </TouchableOpacity>
-          </View>
-        ),
+        
       }}
     >
       <Tabs.Screen

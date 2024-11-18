@@ -11,10 +11,15 @@ interface User {
   project_id: string | null;
 }
 
+interface Session {
+  issuedAt: string;
+  expiresAt: string;
+}
+
 interface AuthContextProps {
   user: User | null;
   loading: boolean;
-  login: (userData: User, token: string) => void;
+  login: (userData: User, token: string, session: Session) => void;
   logout: () => Promise<void>;
 }
 
@@ -28,16 +33,47 @@ export const AuthContext = createContext<AuthContextProps>({
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
+  const [logoutTimer, setLogoutTimer] = useState<NodeJS.Timeout | null>(null);
 
-  const login = (userData: User, token: string) => {
+  const setupAutoLogout = (expiresAt: string) => {
+    if (logoutTimer) {
+      clearTimeout(logoutTimer);
+    }
+
+    const expirationTime = new Date(expiresAt).getTime();
+    const currentTime = new Date().getTime();
+    const timeUntilExpiry = expirationTime - currentTime;
+
+    if (timeUntilExpiry <= 0) {
+      logout();
+      return;
+    }
+
+    const timer = setTimeout(() => {
+      logout();
+    }, timeUntilExpiry);
+
+    setLogoutTimer(timer);
+  };
+
+  const login = (userData: User, token: string, session: Session) => {
     const normalizedUser = { ...userData, role: userData.role.toLowerCase() };
     setUser(normalizedUser);
     
-    AsyncStorage.setItem('loginData', JSON.stringify({ token, user: normalizedUser }));
+    AsyncStorage.setItem('loginData', JSON.stringify({ 
+      token, 
+      user: normalizedUser,
+      session
+    }));
+
+    setupAutoLogout(session.expiresAt);
   };
 
   const logout = async () => {
     try {
+      if (logoutTimer) {
+        clearTimeout(logoutTimer);
+      }
       setUser(null);
       await AsyncStorage.removeItem('loginData');
       router.navigate('/');
@@ -53,8 +89,17 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         if (storedData) {
           const parsedData = JSON.parse(storedData);
           const normalizedUser = { ...parsedData.user, role: parsedData.user.role.toLowerCase() };
-          setUser(normalizedUser);
           
+          // Check if token is expired
+          const expirationTime = new Date(parsedData.session.expiresAt).getTime();
+          const currentTime = new Date().getTime();
+          
+          if (currentTime >= expirationTime) {
+            await logout();
+          } else {
+            setUser(normalizedUser);
+            setupAutoLogout(parsedData.session.expiresAt);
+          }
         }
       } catch (error) {
         console.error('Failed to load user data:', error);
@@ -64,6 +109,12 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     };
 
     loadUser();
+
+    return () => {
+      if (logoutTimer) {
+        clearTimeout(logoutTimer);
+      }
+    };
   }, []);
 
   return (
