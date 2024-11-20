@@ -2,6 +2,7 @@
 import React, { createContext, useState, useEffect, ReactNode } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { router } from 'expo-router';
+import { Alert } from 'react-native';
 
 interface User {
   username: string;
@@ -76,7 +77,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       }
       setUser(null);
       await AsyncStorage.removeItem('loginData');
-      router.navigate('/');
+      Alert.alert('Session Expired', 'Your session has expired. Please login again.');
+      router.replace('/login');
     } catch (error) {
       console.error('Error during logout:', error);
     }
@@ -95,7 +97,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           const currentTime = new Date().getTime();
           
           if (currentTime >= expirationTime) {
-            await logout();
+           
+            logout();
           } else {
             setUser(normalizedUser);
             setupAutoLogout(parsedData.session.expiresAt);

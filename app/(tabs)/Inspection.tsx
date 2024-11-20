@@ -69,19 +69,19 @@ const InspectionScreen: React.FC<InspectionScreenProps> = ({ userRole = 'User', 
   const handleBarCodeScanned = async ({ type, data }: { type: string; data: string }) => {
     setScanned(true);
     setCameraOpen(false);
-
+    const splitData = data.split('/').pop();
     try {
       const response = await fetch(`${config.apiUrl}/mobile/extinguisher/decrypt`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ encryptedData: data }),
+        body: JSON.stringify({ encryptedData: splitData }),
       });
 
       if (response.ok) {
         const info = await response.json();
-        setExtinguisherInfo(info);
+        setExtinguisherInfo(info.data);
         setShowOptions(true); // Show options after fetching details
         Alert.alert('Success', 'Extinguisher details fetched successfully');
       } else {

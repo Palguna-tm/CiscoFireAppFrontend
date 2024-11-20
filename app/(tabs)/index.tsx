@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { StyleSheet, View, Text, Button, ActivityIndicator, TouchableOpacity, Animated, Alert, ScrollView, Easing } from 'react-native';
+import { StyleSheet, View, Text, Button, ActivityIndicator, TouchableOpacity, Animated, Alert, ScrollView, Easing, Linking } from 'react-native';
 import { CameraView, Camera } from "expo-camera"
 import { MaterialIcons } from '@expo/vector-icons';
 import config from '../config';
@@ -7,7 +7,8 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Location from 'expo-location';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
-import MapView, { Marker } from 'react-native-maps';
+
+
 
 export default function HomeScreen() {
   const router = useRouter();
@@ -85,20 +86,22 @@ export default function HomeScreen() {
   const handleBarCodeScanned = async ({ type, data }: { type: string; data: string }) => {
     setScanned(true);
     setCameraOpen(false);
-
+    
+    const splitData = data.split('/').pop();
     try {
       const response = await fetch(`${config.apiUrl}/mobile/extinguisher/decrypt`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ encryptedData: data }),
+        body: JSON.stringify({ encryptedData: splitData }),
       });
 
       if (response.ok) {
         const info = await response.json();
-        setExtinguisherInfo(info);
-        const url = `https://www.google.com/maps/search/?api=1&query=${info.latitude},${info.longitude}`;
+        console.log(info.data);
+        setExtinguisherInfo(info.data);
+        const url = `https://www.google.com/maps/search/?api=1&query=${info.data.latitude},${info.data.longitude}`;
         setGoogleMapsUrl(url);
       } else {
         Alert.alert('Error', 'Failed to decrypt QR code');
@@ -265,6 +268,13 @@ export default function HomeScreen() {
     }
   };
 
+  const openInGoogleMaps = () => {
+    if (!extinguisherInfo?.latitude || !extinguisherInfo?.longitude) return;
+    
+    const url = `https://www.google.com/maps/search/?api=1&query=${extinguisherInfo.latitude},${extinguisherInfo.longitude}`;
+    Linking.openURL(url).catch((err) => Alert.alert('Error', 'Could not open Google Maps'));
+  };
+
   if (hasPermission === null) {
     return (
       <View style={styles.centered}>
@@ -360,27 +370,21 @@ export default function HomeScreen() {
           </View>
         )}
 
-        {extinguisherInfo && extinguisherInfo.latitude && extinguisherInfo.longitude && (
-          <View style={styles.mapContainer}>
-            <MapView
-              style={styles.map}
-              initialRegion={{
-                latitude: parseFloat(extinguisherInfo.latitude) || 0,
-                longitude: parseFloat(extinguisherInfo.longitude) || 0,
-                latitudeDelta: 0.001,
-                longitudeDelta: 0.001,
-              }}
+        {extinguisherInfo && (
+          <TouchableOpacity 
+            style={styles.mapButton}
+            onPress={openInGoogleMaps}
+          >
+            <LinearGradient
+              colors={['#4A00E0', '#8E2DE2']}
+              start={[0, 0]}
+              end={[1, 1]}
+              style={styles.mapButtonGradient}
             >
-              <Marker
-                coordinate={{
-                  latitude: parseFloat(extinguisherInfo.latitude) || 0,
-                  longitude: parseFloat(extinguisherInfo.longitude) || 0,
-                }}
-                title={extinguisherInfo.location || 'Location'}
-                description={`${extinguisherInfo.block || ''}, ${extinguisherInfo.area || ''}`}
-              />
-            </MapView>
-          </View>
+              <MaterialIcons name="map" size={24} color="white" />
+              <Text style={styles.mapButtonText}>Open in Google Maps</Text>
+            </LinearGradient>
+          </TouchableOpacity>
         )}
       </View>
     </ScrollView>
@@ -810,12 +814,8 @@ const styles = StyleSheet.create({
     marginVertical: 10,
     borderRadius: 10,
     overflow: 'hidden',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 3.84,
-    elevation: 5,
     backgroundColor: '#f5f5f5',
+    elevation: 5,
   },
   map: {
     width: '100%',
@@ -843,5 +843,43 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
     marginLeft: 8,
+  },
+  locationDisplay: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    flexDirection: 'row',
+    gap: 10,
+    backgroundColor: '#fff',
+    padding: 16,
+    borderRadius: 10,
+  },
+  locationText: {
+    fontSize: 16,
+    color: '#666',
+  },
+  mapButton: {
+    width: '90%',
+    marginVertical: 20,
+    borderRadius: 12,
+    overflow: 'hidden',
+    elevation: 3,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+  },
+  mapButtonGradient: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    gap: 10,
+  },
+  mapButtonText: {
+    color: 'white',
+    fontSize: 16,
+    fontWeight: '600',
   },
 });

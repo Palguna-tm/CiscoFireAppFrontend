@@ -48,18 +48,19 @@ const ReplacementScreen: React.FC = () => {
 
   // Function to decrypt QR code data
   const decryptQRCode = async (data: string): Promise<ExtinguisherInfo | null> => {
+    const splitData = data.split('/').pop();
     try {
       const response = await fetch('https://devcisco.zenapi.co.in/mobile/extinguisher/decrypt', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ encryptedData: data }),
+        body: JSON.stringify({ encryptedData: splitData }),
       });
 
       if (response.ok) {
         const info = await response.json();
-        return info;
+        return info.data;
       } else {
         Alert.alert('Error', 'Failed to decrypt QR code');
         return null;
